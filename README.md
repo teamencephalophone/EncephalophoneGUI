@@ -1,8 +1,6 @@
 # Encephalophone-GUI
 
-## About
-
-The Encephalophone GUI is supercollider UI developed for calibration, testing, and usage of the encephalophone
+### A supercollider UI developed for calibration, testing, and usage of the encephalophone
 
 ## Help
 
