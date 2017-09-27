@@ -26,7 +26,7 @@ Quarks.install("https://github.com/teamencephalophone/Encephalophone-GUI");
 // PC:  Control + Enter
 
 
-// Opens Encephalophone GUI
+// Runs Encephalophone GUI
 // ------------------------
 Encephalophone-GUI(s)
 
