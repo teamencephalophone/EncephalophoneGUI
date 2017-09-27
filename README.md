@@ -9,29 +9,27 @@ The code below provides instruction on installation and use of the Encephalophon
 Copy the into a blank .scd file for use
 
 ```
-// To replace/edit code..
+// To install Encephalophone-GUI 
 // --------------
-// 1) Click file
-// 2) Open User Support Directory
-// 3) Click Extensions
-// 4) Replace Encephalophone-GUI folder
-// 5) Click Language 
-// 6) Click Recomplie Class Library 
+Quarks.install("https://github.com/teamencephalophone/Encephalophone-GUI");
 
-// Note: All code can be found in this folder
-// To find data..
+// Code and data location ..
 // --------------
 // 1) Click file
 // 2) Open User Support Directory
-// 3) Click Extensions
-// 4) Click EncGUI
-// 5) Click Data
+// 3) Click downloaded-quarks
+// 4) Click Encephalophone-GUI
+
 // To run code..
 // --------------
 // Mac: Command + Enter
 // PC:  Control + Enter
+
+
 // Opens Encephalophone GUI
-EncGUI(s)
+// ------------------------
+Encephalophone-GUI(s)
+
 // Check OSC messages from /fred
 (
 var oscFunc, oscdef;
