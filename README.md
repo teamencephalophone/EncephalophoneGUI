@@ -9,9 +9,17 @@ The code below provides instruction on installation and use of the Encephalophon
 Copy the into a blank .scd file for use
 
 ```
+// To run code..
+// --------------
+// 1) Click click inside of parenthesis
+// 2) Mac: Command + Enter
+//    PC:  Control + Enter
+
+(
 // To install Encephalophone-GUI 
 // --------------
 Quarks.install("https://github.com/teamencephalophone/Encephalophone-GUI");
+)
 
 // Code and data location ..
 // --------------
@@ -20,15 +28,10 @@ Quarks.install("https://github.com/teamencephalophone/Encephalophone-GUI");
 // 3) Click downloaded-quarks
 // 4) Click Encephalophone-GUI
 
-// To run code..
-// --------------
-// Mac: Command + Enter
-// PC:  Control + Enter
-
-
+(
 // Runs Encephalophone GUI
-// ------------------------
 Encephalophone-GUI(s)
+)
 
 // Check OSC messages from /fred
 (
