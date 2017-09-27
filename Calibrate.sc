@@ -8,6 +8,12 @@ Calibrate {
 	init {arg thisServer, thisGUI;
 		server = thisServer;
 		gui = thisGUI;
+		this.makeGUI;
+	}
+
+	makeGUI {
+
+
 	}
 
 }

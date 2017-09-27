@@ -252,7 +252,6 @@ Tester {
 
 		folderField = StaticText(startBox, Rect(50, 100, 40, 20)).string_("path:").stringColor_(Color.white).font_(Font().pixelSize_(15));
 
-
 		TextField(startBox, Rect(100, 100, 200, 25)).background_(Color.black).stringColor_(Color.white).action_({arg text;
 			if (text != "",
 				{
@@ -262,29 +261,6 @@ Tester {
 				}
 			)
 		});
-
-/*
-		slide = Slider(gui, Rect.new(300, 260, 820, 50)).value_(0.5).background_(Color.black).knobColor_(Color.white).visible_(false);
-
-		Button(gui, Rect(150, 260, 100, 50))
-		.states_([
-			["USE SLIDER", Color.white, Color.black],
-			["USE SLIDER", Color.black, Color.white]
-		])
-		.font_(guiFont.pixelSize_(15))
-		.action_({arg btn;
-			if ( btn.value == 1,
-				{
-					slide.visible_(true);
-					useSlider = true
-				},
-				{
-					slide.visible_(false);
-					useSlider = false
-				}
-			);
-		});*/
-
 	}
 
 	playTester {
