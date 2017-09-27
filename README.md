@@ -1,4 +1,4 @@
-# Encephalophone-GUI
+# EncephalophoneGUI
 
 ### A supercollider UI developed for calibration, testing, and usage of the encephalophone
 
@@ -16,9 +16,9 @@ Copy the into a blank .scd file for use
 //    PC:  Control + Enter
 
 (
-// To install Encephalophone-GUI 
+// To install EncephalophoneGUI 
 // --------------
-Quarks.install("https://github.com/teamencephalophone/Encephalophone-GUI");
+Quarks.install("https://github.com/teamencephalophone/EncephalophoneGUI");
 )
 
 // Code and data location ..
@@ -26,11 +26,11 @@ Quarks.install("https://github.com/teamencephalophone/Encephalophone-GUI");
 // 1) Click file
 // 2) Open User Support Directory
 // 3) Click downloaded-quarks
-// 4) Click Encephalophone-GUI
+// 4) Click EncephalophoneGUI
 
 (
 // Runs Encephalophone GUI
-Encephalophone-GUI(s)
+EncephalophoneGUI(s)
 )
 
 // Check OSC messages from /fred
