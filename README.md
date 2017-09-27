@@ -1,4 +1,4 @@
-# EncephalophoneGUI
+# Encephalophone GUI
 
 ### A supercollider UI developed for calibration, testing, and usage of the encephalophone
 
