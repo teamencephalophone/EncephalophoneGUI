@@ -1,6 +1,7 @@
 EncephalophoneGUI {
 	var server;
 	var gui;
+	var freeplay;
 
 	*new {arg server;
 		^super.new.init(server);
@@ -31,7 +32,7 @@ EncephalophoneGUI {
 
 		modeTypes = [\Calibrate, \FreePlay, \Tester];
 
-		modeDim = [[800, 300], [840, 400], [360, 180]];
+		modeDim = [[800, 300], [840, 400], [360, 200]];
 
 		gui = Window.new("EncGUI", Rect(200, 600, modeDim[0][0], modeDim[0][1] + space))
 		.visible_(true)
@@ -60,7 +61,7 @@ EncephalophoneGUI {
 				{
 					if (thisKey[0] == \Tester,
 						{tester = Tester(server, modeView, gui)},
-						{FreePlay(server, modeView)}
+						{freeplay = FreePlay(server, modeView)}
 					)
 				}
 			);
@@ -78,15 +79,20 @@ EncephalophoneGUI {
 				.font_(Font.new.pixelSize_(20))
 		)});
 
-		// Selects default filter
 		modeBox[\Calibrate].visible_(true);
 		selectMode[\Calibrate].value_(1);
 
-		// Creates filter button behavior
 		selectMode.keysDo({arg key;
 			selectMode[key].action_({arg button;
 				if (button.value == 1,
 					{
+						if (key != \FreePlay && modeBox[\FreePlay].visible,
+							{
+								if(freeplay.getBtn.value == 1,
+									{freeplay.getBtn.valueAction_(0)}
+								)
+							}
+						);
 						modeBox.values.do({arg value; value.visible_(false)});
 						modeBox[key].visible_(true);
 						modeBox[\buttons].visible_(true);

@@ -30,6 +30,8 @@ Tester {
 	var window;
 	var key, stopBtn;
 	var trial;
+	var folder;
+	var nameFlag, folderFlag;
 
 	*new {arg server, gui, window;
 		^super.new.init(server, gui, window);
@@ -43,6 +45,8 @@ Tester {
 		dif = Dictionary.new;
 		useSlider = false;
 		slider = Dictionary.new;
+		nameFlag = false;
+		folderFlag = false;
 		[
 			[\target, 0.5],
 			[\user, 0.3],
@@ -110,6 +114,8 @@ Tester {
 		var startBox;
 		var sliderBox;
 		var nameField;
+		var folderField;
+		var checkFlags;
 /*
 		gui = Window("Tester",  Rect.new(400, 800, 360, 180)).background_(Color.black).alwaysOnTop_(true).front.onClose_(
 			{
@@ -123,7 +129,7 @@ Tester {
 		view = CompositeView(gui, Rect.new(250, 50, 820, 200)).background_(Color.grey.alpha_(0.3));
 		view.decorator_(FlowLayout(view.bounds,10@10, 0@0));
 
-		startBox = CompositeView(gui, Rect(0, 0, 360, 180));
+		startBox = CompositeView(gui, Rect(0, 0, 360, 200));
 
 /*		sliderBox = CompositeView(gui, Rect.new(50, 100, 200, 200)).background_(Color.grey.alpha_(0.2));
 		sliderBox.decorator_(FlowLayout(view.bounds,10@10, 0@0));
@@ -153,7 +159,7 @@ Tester {
 		hitText = makeText.value(mul: 120, size: 15);
 		missText = makeText.value(mul: 160, size: 15);
 
-		StaticText(startBox, Rect(50, 60, 60, 20)).string_("difficulty:").stringColor_(Color.white).font_(Font().pixelSize_(15));
+		StaticText(startBox, Rect(50, 60, 70, 20)).string_("difficulty:").stringColor_(Color.white).font_(Font().pixelSize_(15));
 
 		PopUpMenu(startBox, Rect(120, 60, 180, 25)).items_(["EASY", "MEDIUM", "HARD"]).background_(Color.black).stringColor_(Color.white)
 		.action_({arg menu;
@@ -161,7 +167,7 @@ Tester {
 			difString = menu.item;
 		});
 
-		button = Button(startBox, Rect(50, 100, 250, 40))
+		button = Button(startBox, Rect(50, 140, 250, 40))
 		.states_([
 			["START SESSION", Color.white, Color.black],
 			["", Color.black, Color.white]
@@ -201,8 +207,8 @@ Tester {
 								numGen.free;
 								file.write("hits: " ++ hit ++ " misses: " ++ miss ++ " trials: " ++ (trial) ++ " difficulty: " ++ difString ++ "\n");
 								file.close;
-								window.setInnerExtent(360, 180 + 50);
-								gui.resizeTo(360, 180);
+								window.setInnerExtent(360, 200 + 50);
+								gui.resizeTo(360, 200);
 								view.visible_(false);
 								startBox.visible_(true);
 								thisBtn.visible_(false);
@@ -224,17 +230,39 @@ Tester {
 		})
 		.visible_(false);
 
+		checkFlags = {
+			if (folderFlag && nameFlag, {
+				button.visible_(true);
+				nameFlag = false;
+				folderFlag = false;
+			});
+		};
+
 		nameField = StaticText(startBox, Rect(50, 20, 40, 20)).string_("name:").stringColor_(Color.white).font_(Font().pixelSize_(15));
 
 		TextField(startBox, Rect(100, 20, 200, 25)).background_(Color.black).stringColor_(Color.white).action_({arg text;
 			if (text != "",
 				{
 					name = text.value;
-					button.visible_(true);
-
+					nameFlag = true;
+					checkFlags.value();
 				}
 			)
 		});
+
+		folderField = StaticText(startBox, Rect(50, 100, 40, 20)).string_("path:").stringColor_(Color.white).font_(Font().pixelSize_(15));
+
+
+		TextField(startBox, Rect(100, 100, 200, 25)).background_(Color.black).stringColor_(Color.white).action_({arg text;
+			if (text != "",
+				{
+					folder = text.value;
+					folderFlag = true;
+					checkFlags.value();
+				}
+			)
+		});
+
 /*
 		slide = Slider(gui, Rect.new(300, 260, 820, 50)).value_(0.5).background_(Color.black).knobColor_(Color.white).visible_(false);
 
@@ -288,7 +316,7 @@ Tester {
 
 			date = " " ++ Date.getDate.asString.replace(":", "-");
 
-			file = File(Platform.userAppSupportDir ++ "/Extensions/EncGUI/Data/" ++ name ++ date ++ ".txt", "w");
+			file = File(folder ++ name ++ date ++ ".txt", "w");
 
 			600.do({ arg i;
 					if (cur == 1,

@@ -2,6 +2,7 @@ FreePlay {
 	var gui, server;
 	var oscdef;
 	var userNotes;
+	var btn;
 
 	*new {arg server, gui;
 		^super.new.init(server, gui);
@@ -31,7 +32,7 @@ FreePlay {
 			NoteVis(100, Color.white, noteBox).animate;
 		});
 
-		Button(controlBox, 150@40)
+		btn = Button(controlBox, 150@40)
 		.states_([
 			["START", Color.white, Color.black],
 			["STOP", Color.black, Color.white]
@@ -77,6 +78,10 @@ FreePlay {
 
 	getOscDef {
 		^oscdef;
+	}
+
+	getBtn {
+		^btn;
 	}
 
 	play {arg deg = 1, oct = 2, dur = 0.4, synth = \curSynth;
