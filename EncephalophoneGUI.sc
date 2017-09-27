@@ -1,4 +1,4 @@
-Encephalophone-GUI {
+EncephalophoneGUI {
 	var server;
 	var gui;
 
