@@ -1,0 +1,10 @@
+(
+	name: 		"Encephalophone-GUI",
+	summary:	"A supercollider UI developed for calibration, testing, and usage of the encephalophone",
+    schelp:     	"Encephalophone-GUI",
+	author: 	"James Wenlock",
+  	license: 	"GPL",
+	version:	"0.1.0",
+	organization: "Center for Digital Arts and Experimental Media",
+    copyright: "James Wenlock, 2017"
+)
