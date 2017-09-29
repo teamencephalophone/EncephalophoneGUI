@@ -19,7 +19,7 @@ EncephalophoneGUI {
 		var modeBox, selectMode, modes;
 		var space;
 		var modeTypes, modeDim;
-		var colors = [Color.white.alpha_(0.1), Color.white.alpha_(0.08), Color.white.alpha_(0.06)];
+		var colors = Array.fill(3, {Color.white.alpha_(0.06)});
 		var tester;
 
 		space = 50;

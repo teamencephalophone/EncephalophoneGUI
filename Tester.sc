@@ -292,7 +292,12 @@ Tester {
 
 			date = " " ++ Date.getDate.asString.replace(":", "-");
 
-			file = File(folder ++ name ++ date ++ ".txt", "w");
+			file = File(folder
+				++ Platform.case(
+					    \osx,       { "".postln },
+					    \windows,   { "/".postln }
+				)
+				++ name ++ date ++ ".txt", "w");
 
 			600.do({ arg i;
 					if (cur == 1,
