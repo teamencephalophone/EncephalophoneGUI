@@ -3,6 +3,10 @@ FreePlay {
 	var oscdef;
 	var userNotes;
 	var btn;
+	var instrument;
+	var major, minor;
+	var keys, curKey;
+	var octaves, curOctave;
 
 	*new {arg server, gui;
 		^super.new.init(server, gui);
@@ -11,8 +15,41 @@ FreePlay {
 	init {arg thisServer, thisGUI;
 		gui = thisGUI;
 		server = thisServer;
+		instrument = Dictionary.new;
+		this.makeDict;
 		this.initSynths;
 		this.makeGUI;
+		major = Scale.major.degrees + 12;
+		minor = Scale.minor.degrees + 12;
+		octaves = Array.fill(8, {arg i; i});
+		keys = ["A", "A#", "B", "C", "C#", "D", "D#", "E", "F", "G", "G#"];
+
+		curKey = "A#2";
+		curOctave = 4;
+	}
+
+	makeDict {
+		var makeBufs;
+
+		makeBufs = {arg entries;
+			var noteDict = Dictionary.new;
+			var minimum = 128;
+			var maximum = 0;
+			entries.filesDo({arg thisFile;
+				var fileArray = thisFile.fileName.split($.);
+				var midiNum = fileArray[fileArray.size - 3].namemidi;
+				minimum = min(midiNum, minimum);
+				maximum = max(midiNum, maximum);
+				noteDict.put(midiNum, thisFile);
+			});
+			noteDict.put(\min, minimum);
+			noteDict.put(\max, maximum);
+			noteDict;
+		};
+
+		PathName("/Users/dxlocal/Desktop/Musical_Instruments_midi/").entries.do({arg thisEntry;
+			instrument.put(thisEntry.folderName.asSymbol, makeBufs.value(thisEntry));
+		});
 	}
 
 	makeGUI {
