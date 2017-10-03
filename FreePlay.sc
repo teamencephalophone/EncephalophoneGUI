@@ -29,7 +29,7 @@ FreePlay {
 		controlBox = makeBox.value(Rect.new(20, gui.bounds.height - 260, 380, 300), Color.grey.alpha_(0.2), 10@10, 10@10);
 
 		userNotes = Array.fill(8, {
-			NoteVis(100, Color.white, noteBox).animate;
+			NoteVis(95, Color.white, noteBox).animate;
 		});
 
 		btn = Button(controlBox, 150@40)

@@ -51,7 +51,7 @@ Calibrate {
 
 
 		oscdef = OSCdef(
-			\aName,
+			\calibrateDef,
 			{ |msg, time, addr|
 				var note;
 				("getting - " + msg[1]).postln;

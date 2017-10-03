@@ -205,7 +205,7 @@ Tester {
 								);
 								oscdef.free;
 								numGen.free;
-								file.write("hits: " ++ hit ++ " misses: " ++ miss ++ " trials: " ++ (trial) ++ " difficulty: " ++ difString ++ "\n");
+								file.write("\n \n" ++ "hits: " ++ hit ++ " misses: " ++ miss ++ " trials: " ++ (trial) ++ " difficulty: " ++ difString ++ "\n");
 								file.close;
 								window.setInnerExtent(360, 200 + 50);
 								gui.resizeTo(360, 200);
@@ -285,10 +285,9 @@ Tester {
 			// };
 			// thisProcess.addOSCRecvFunc(oscFunc);
 			oscFunc = { |msg, time, addr|
-					("getting - " + msg[1]).postln;
 				    thisNum = msg[1] - 1;
 			};
-			oscdef = OSCdef(\aName, oscFunc, '/fred');
+			oscdef = OSCdef(\testerDef, oscFunc, '/fred');
 
 			date = " " ++ Date.getDate.asString.replace(":", "-");
 
