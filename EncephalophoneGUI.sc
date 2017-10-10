@@ -1,7 +1,7 @@
 EncephalophoneGUI {
 	var server;
 	var gui;
-	var freeplay;
+	var freeplay, tester, calibrate;
 
 	*new {arg server;
 		^super.new.init(server);
@@ -9,7 +9,7 @@ EncephalophoneGUI {
 
 	init {arg thisServer;
 		server = thisServer;
-		server.boot;
+		server.options.numBuffers = 2**16;
 		server.waitForBoot({
 			this.makeGUI;
 		});
@@ -20,7 +20,6 @@ EncephalophoneGUI {
 		var space;
 		var modeTypes, modeDim;
 		var colors = Array.fill(3, {Color.white.alpha_(0.06)});
-		var tester;
 
 		space = 50;
 
@@ -43,7 +42,9 @@ EncephalophoneGUI {
 				server.freeAll;
 				SystemClock.clear;
 				server.quit;
-				tester.getOscDef.free;
+				[tester, freeplay, calibrate].do({arg item;
+					item.getOscDef.free;
+				});
 			}
 		);
 
@@ -56,7 +57,7 @@ EncephalophoneGUI {
 			modeBox.put(thisKey[0], modeView);
 			if (thisKey[0] == \Calibrate,
 				{
-					Calibrate(server, modeView);
+					calibrate = Calibrate(server, modeView);
 				},
 				{
 					if (thisKey[0] == \Tester,

@@ -16,6 +16,9 @@ Calibrate {
 		var controlBox, plotBox;
 		var btn, plotView, plot;
 		var data, cur;
+		var plotDim;
+
+		plotDim = [330, 180];
 
 		data = Array.fill(16, {0});
 		cur = 0;
@@ -44,9 +47,16 @@ Calibrate {
 			)
 		});
 
-		plotView = UserView(plotBox, 360@190);
+		plotView = UserView(plotBox, plotDim[0]@plotDim[1]);
 
-		plot = Plotter("data-plot", Rect(0, 0, 380, 200), plotView).value_(data);
+		plot = Plotter("data-plot", Rect(0, 0, plotDim[0], plotDim[1]), plotView).value_(data)
+		.setProperties(
+			 \fontColor, Color.white,
+			\plotColor, Color.white,
+			\backgroundColor, Color.black,
+			\gridColorX, Color.white,
+			\gridColorY, Color.white,
+		);
 		cur = StaticText(plotBox, 30@30).string_("" + cur).stringColor_(Color.white);
 
 
@@ -54,7 +64,6 @@ Calibrate {
 			\calibrateDef,
 			{ |msg, time, addr|
 				var note;
-				("getting - " + msg[1]).postln;
 				note = msg[1];
 				data.removeAt(0);
 				data.add(note);
@@ -67,6 +76,10 @@ Calibrate {
 			'/fred'
 		)
 
+	}
+
+	getOscDef {
+		^oscdef;
 	}
 
 }
