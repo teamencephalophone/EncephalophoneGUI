@@ -11,6 +11,8 @@ FreePlay {
 	var noteData, cur;
 	var curInstrument, note, keys;
 	var instrumentNames;
+	var lastNote;
+	var <isSustaining = false;
 
 	*new {arg server, gui;
 		^super.new.init(server, gui);
@@ -67,6 +69,17 @@ FreePlay {
 		instrumentNames = list.asArray;
 	}
 
+	isSustaining_ {arg bool;
+		if(bool, {
+			// nowPlayingSynth.set(\sustaining, 1);
+			isSustaining = true;
+		}, {
+			// nowPlayingSynth.set(\gate, 0);
+			this.releaseLast;
+			isSustaining = false;
+		})
+	}
+
 	makeGUI {
 		var makeBox, makeView;
 		var noteBox, controlBox, soundBox;
@@ -87,17 +100,44 @@ FreePlay {
 			thisBox;
 		};
 
-		noteBox = makeBox.value(Rect.new(20, 10, gui.bounds.width - 40, gui.bounds.height - 300), Color.grey.alpha_(0.3), 10@0, 0@0);
+		gui.layout_(
+			VLayout(
+				noteBox = View(),
+				controlBox = View(),
+				instrumentBox = View().layout_(HLayout()),
+			)
+		);
 
-		controlBox = makeBox.value(Rect.new(20, gui.bounds.height - 260, 380, 300), Color.grey.alpha_(0.2), 10@10, 10@10);
-
-		instrumentBox = makeBox.value(Rect.new(30, gui.bounds.height - 200, 180, 200), Color.grey.alpha_(0.2), 10@10, 10@10);
+	// noteBox = makeBox.value(Rect.new(20, 10, gui.bounds.width - 40, gui.bounds.height - 300), Color.grey.alpha_(0.3), 10@0, 0@0);
+	//
+	// controlBox = makeBox.value(Rect.new(20, gui.bounds.height - 260, 380, 300), Color.grey.alpha_(0.2), 10@10, 10@10);
+	//
+	// instrumentBox = makeBox.value(Rect.new(30, gui.bounds.height - 200, 180, 200), Color.grey.alpha_(0.2), 10@10, 10@10);
 
 		userNotes = Array.fill(8, {
 			NoteVis(95, Color.white, noteBox).animate;
 		});
 
 		btn = Button(controlBox, 180@40)
+		.states_([
+			["START", Color.white, Color.black],
+			["STOP", Color.black, Color.white]
+		])
+		.font_(Font.new().pixelSize_(15))
+		.action_({arg button;
+			if(button.value == 1,
+				{
+					this.startSequence;
+					this.startPattern;
+				},
+				{
+					this.stopSequence;
+					this.stopPattern;
+				}
+			)
+		});
+
+		Button(controlBox, 180@20)
 		.states_([
 			["START", Color.white, Color.black],
 			["STOP", Color.black, Color.white]
@@ -160,13 +200,15 @@ FreePlay {
 		}).add;
 
 		SynthDef.new(\playSound,
-			{arg buffer, gain = -6, a = 0.05, d = 0.1 , s = 0.1, r = 0.5, dur = 0.3, ratio = 1;
+			{arg buffer, gain = -6, a = 0.05, d = 0.1 , s = 0.1, r = 0.5, dur = 0.3, ratio = 1, gate = 1;
 				var in, out, env, amp;
 				amp = gain.dbamp;
 				//env = EnvGen.kr(Env.adsr(a, d, s, r), levelScale: amp, timeScale: dur, doneAction: 2);
 				in = PlayBuf.ar(1, buffer, BufRateScale.kr(buffer) * ratio);
 				out = in!2;
 				out = out *  EnvGen.kr(Env([0, 1, 0], [0.1, 0.9]),  timeScale: BufDur.kr(buffer) * dur, doneAction: 2);
+				// out = out *  EnvGen.kr(Env.adsr(att, dec, susL, rel), Select.kr(sustaining, [Trig1.kr(1, BufDur.kr(buffer)).neg + 1, gate]),  doneAction: 2);
+				out = out *  EnvGen.kr(Env.adsr(a, d, s, r), gate,  doneAction: 2);
 				Out.ar(0, out);
 			}).add;
 	}
@@ -183,10 +225,19 @@ FreePlay {
 
 	initPattern {
 		userPattern = Task ({
+			var duration;
+			duration = 60.0 / tempo.max(1);
 			loop {
+				if(isSustaining.not, {
 					{userNotes[note].animate}.defer;
 					this.play(note);
-					(60.0 / tempo).wait;
+				});
+				{
+					if(isSustaining.not, {
+						this.release;
+					});
+				}.defer(duration); //duration from the buffer, but depends what you want to do with envelope
+				(60.0 / tempo.max(1)).wait;
 			}
 		}, TempoClock);
 	}
@@ -213,26 +264,29 @@ FreePlay {
 
 	play {arg note;
 		var rout, thisBuf, min, max, ratio, midiDif, major;
-		major = Scale.major.degrees ++ 12;
-		note = keys[curKey] + major[note] + (12 * curOctave) + 24;
-		min = instrument[curInstrument][\min];
-		max = instrument[curInstrument][\max];
-		midiDif = 0;
-		case
-		{note < min} {
-			midiDif = (note - min);
-			note = min;
-		}
-		{note > max} {
-			midiDif = (note - max);
-			note = max;
-		};
-		ratio = midiDif.midiratio;
+			major = Scale.major.degrees ++ 12;
+			note = keys[curKey] + major[note] + (12 * curOctave) + 24;
+			min = instrument[curInstrument][\min];
+			max = instrument[curInstrument][\max];
+			midiDif = 0;
+			case
+			{note < min} {
+				midiDif = (note - min);
+				note = min;
+			}
+			{note > max} {
+				midiDif = (note - max);
+				note = max;
+			};
+			ratio = midiDif.midiratio;
 
-		note.postln;
-		ratio.postln;
-		instrument[curInstrument][note].postln;
+			note.postln;
+			ratio.postln;
+			instrument[curInstrument][note].postln;
+		lastNote = Synth.new(\playSound, [\buffer, instrument[curInstrument][note], \dur, 0.3, \ratio, ratio, \sustaining, isSustaining]);
+	}
 
-		Synth.new(\playSound, [\buffer, instrument[curInstrument][note], \dur, 0.3, \ratio, ratio]);
+	releaseLast {
+		lastNote !? {lastNote.release};
 	}
 }
