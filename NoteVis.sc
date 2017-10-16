@@ -1,5 +1,5 @@
 NoteVis {
-	var color, gui, uv;
+	var color, gui, <>uv;
 
 	*new {arg size, color, gui;
 		^super.new.init(size, color, gui);
@@ -28,4 +28,7 @@ NoteVis {
 		uv.animate_(true);
 	}
 
+	getView {
+		^uv;
+	}
 }
