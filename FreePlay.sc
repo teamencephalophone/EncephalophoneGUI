@@ -8,13 +8,9 @@ FreePlay {
 	var keys, curKey;
 	var octaves, curOctave;
 	var userPattern, tempo;
-	var noteData, cur, midiNote;
-	var curInstrument, note, keys, curRatio, scales, curScale;
-	var instrumentNames, instrumentControls;
-	var clock, userClock, pattern, bar, beat;
-	var songs, curSong;
-	var schedFunc;
-	//var <isSustaining = false;
+	var noteData, cur;
+	var curInstrument, note, keys;
+	var instrumentNames;
 
 	*new {arg server, gui;
 		^super.new.init(server, gui);
@@ -24,42 +20,17 @@ FreePlay {
 		note = 0;
 		gui = thisGUI;
 		server = thisServer;
+		instrument = Dictionary.new;
+		keys = Dictionary.new;
+		keys.putPairs(['C', 0, 'C#', 1, 'Db', 1, 'D', 2, 'D#', 3, 'Eb', 3, 'E', 4, 'F', 5, 'F#', 6, 'Gb', 6, 'G', 7, 'G#', 8, 'Ab', 8, 'A', 9, 'A#', 10, 'Bb', 10, 'B', 11]);
 		tempo = 120;
 		curOctave = 4;
 		curKey = 'C';
-		curScale = \major;
-		instrument = Dictionary.new;
-		keys = Dictionary.new;
-		scales = Dictionary.new;
-		songs = Dictionary.new;
-		scales.putPairs([\major, Scale.major.degrees ++ 12, \minor, Scale.minor.degrees ++ 12]);
-		scales.postln;
-		keys.putPairs(['C', 0, 'C#', 1, 'Db', 1, 'D', 2, 'D#', 3, 'Eb', 3, 'E', 4, 'F', 5, 'F#', 6, 'Gb', 6, 'G', 7, 'G#', 8, 'Ab', 8, 'A', 9, 'A#', 10, 'Bb', 10, 'B', 11]);
 		this.makeDict;
-		this.addSongs;
 		//cur = Dictionary.with(*[\tempo, ->120, \instrument -> \Violin, \note -> 60]);
 		this.initSynths;
 		this.makeGUI;
 		this.initPattern;
-
-	}
-
-	addSongs {
-		var makeSongBufs;
-
-		makeSongBufs = {arg thisFile;
-			var noteDict = Dictionary.new;
-				var fileArray = thisFile.fileName.split($.);
-				noteDict.putPairs([\Name, fileArray[0].asSymbol, \Buffer, Buffer.read(server, thisFile.fullPath), \Key, fileArray[1], \Scale, fileArray[2], \Tempo, fileArray[3]]);
-			noteDict;
-		};
-
-		PathName(Platform.userAppSupportDir ++ "/downloaded-quarks/EncephalophoneGUI/Songs/").entries.do({arg thisEntry;
-			songs.put(thisEntry.fileName.split($.)[0].asSymbol, makeSongBufs.value(thisEntry));
-		});
-		curSong = songs.asSortedArray[0][0];
-	    songs.postln;
-		curSong.postln;
 	}
 
 	makeDict {
@@ -68,19 +39,18 @@ FreePlay {
 		list = SortedList.new;
 		cond = Condition.new;
 
+		loading = StaticText(gui, Rect(10, 10, 70, 20)).string_("loading...").stringColor_(Color.white).font_(Font().pixelSize_(20));
 
 		makeBufs = {arg entries;
 			var noteDict = Dictionary.new;
 			var minimum = 128;
 			var maximum = 0;
-			var startView;
-
 			entries.filesDo({arg thisFile;
 				var fileArray = thisFile.fileName.split($.);
 				var midiNum = fileArray[fileArray.size - 3].namemidi;
 				minimum = min(midiNum, minimum);
 				maximum = max(midiNum, maximum);
-				noteDict.put(midiNum, Buffer.read(server, thisFile.fullPath/*,action:{cond.test_(true).signal}*/));
+				noteDict.put(midiNum, Buffer.read(server, thisFile.fullPath.postln/*,action:{cond.test_(true).signal}*/));
 				//cond.wait;
 				//cond.test_(false);
 			});
@@ -89,202 +59,91 @@ FreePlay {
 			noteDict;
 		};
 
-		PathName(Platform.userAppSupportDir ++ "/downloaded-quarks/EncephalophoneGUI/Musical_Instruments_midi/").entries.do({arg thisEntry;
+		PathName("/Users/dxlocal/Desktop/Musical_Instruments_midi/").entries.do({arg thisEntry;
 			list.add(thisEntry.folderName);
 			instrument.put(thisEntry.folderName.asSymbol, makeBufs.value(thisEntry));
+			loading.visible_(false);
 		});
 		instrumentNames = list.asArray;
 	}
 
-/*	isSustaining_ {arg bool;
-		if(bool, {
-			// nowPlayingSynth.set(\sustaining, 1);
-			isSustaining = true;
-		}, {
-			// nowPlayingSynth.set(\gate, 0);
-			this.releaseLast;
-			isSustaining = false;
-		})
-	}*/
-
 	makeGUI {
 		var makeBox, makeView;
-		var noteBox, controlBox, soundBox, backingBox;
-		var instrumentBox, nameArray, controlDict;
-		var startView;
+		var noteBox, controlBox, soundBox;
+		var instrumentBox, nameArray;
 
-		"Got to GUI".postln;
-		controlDict = Dictionary.new;
-
-		makeBox = {
-			View().background_(Color.grey.alpha_(0.2));
+		makeBox = {arg rect, color, margin, gap;
+			var thisBox = CompositeView(gui, rect).background_(color);
+			thisBox.decorator_(FlowLayout(thisBox.bounds, margin, gap));
 		};
 
-		/*makeView = {arg parent, size, string;
+		makeView = {arg parent, size, string;
 			var gap;
 			var thisBox;
 			gap = 5;
-			thisBox = CompositeView(parent).background_(Color.clear);
+			thisBox = CompositeView(parent, size).background_(Color.clear);
 			thisBox.decorator_(FlowLayout(thisBox.bounds, 0@0, 0@gap));
 			StaticText(thisBox, (thisBox.bounds.width / 2)@thisBox.bounds.height).string_(string).stringColor_(Color.white);
 			thisBox;
-		};*/
+		};
 
-/*		makeView = {arg parent, string, control;
-			controlDict.put(string, control);
-			HLayout(StaticText(parent).string_(string), control);
-		};*/
+		noteBox = makeBox.value(Rect.new(20, 10, gui.bounds.width - 40, gui.bounds.height - 300), Color.grey.alpha_(0.3), 10@0, 0@0);
 
-		noteBox = makeBox.value().fixedHeight_(gui.bounds.height - 300);
-		controlBox = makeBox.value();
-		instrumentBox = makeBox.value();
-		backingBox = makeBox.value().fixedWidth_(600);
+		controlBox = makeBox.value(Rect.new(20, gui.bounds.height - 260, 380, 300), Color.grey.alpha_(0.2), 10@10, 10@10);
+
+		instrumentBox = makeBox.value(Rect.new(30, gui.bounds.height - 200, 180, 200), Color.grey.alpha_(0.2), 10@10, 10@10);
 
 		userNotes = Array.fill(8, {
-			var thisNote, thisView;
-			thisNote = NoteVis(95, Color.white, thisView).animate;
-			thisView = thisNote.getView;
-			[thisNote, thisView];
+			NoteVis(95, Color.white, noteBox).animate;
 		});
 
-		userNotes = userNotes.flop;
-
-		startView = View().background_(Color.black);
-		gui.layout = VLayout (
-			noteBox, HLayout(controlBox, backingBox)
-		);
-
-		noteBox.layout_(HLayout(*userNotes[1]));
-
-		btn = Button()
-			.states_([
-				["START", Color.white, Color.black],
-				["STOP", Color.black, Color.white]
-			])
-			.font_(Font.new().pixelSize_(15))
-			.action_({arg button;
-				if(button.value == 1,
-					{
-					userClock ?? {this.startClock; this.showInfo};
-					    this.startSequence;
-					    this.quantNotes;
-					},
-					{
-					    this.stopUserClock;
-						this.stopSequence;
-					}
-				)
-			});
-
-		controlBox.layout = VLayout(btn, instrumentBox);
-
-
-		instrumentControls = [
-			[
-				"Tempo",                                                   // name
-				TextField(),                                               // control
-				{arg field; clock !? {clock.tempo_(field.value.asInteger/60)}}, // action
-				120                                                          // valueAction
-			],
-			[
-				"Instrument",
-				PopUpMenu(),
-				{arg field;	curInstrument = field.item.asSymbol;},
-				instrumentNames[0],
-				instrumentNames
-			],
-			[
-				"Key",
-				TextField(),
-				{arg field;	curKey = field.value.asSymbol;},
-				"C"
-			],
-			[
-				"Octave",
-				TextField(),
-				{arg field;curOctave = field.value.asInteger;},
-				3
-			],
-			[
-				"Scale",
-				PopUpMenu(),
-				{arg field; curScale = field.item.asSymbol; curScale.postln},
-				"major",
-				scales.asSortedArray.flop[0];
-			]
-		].collect({arg thisData;
-			var control, layout;
-			control = thisData[1];
-			thisData.postln;
-			if (thisData.size > 4, {
-				control.items_(thisData[4]);
-			});
-			control.action_(thisData[2]);
-			control.valueAction_(thisData[3]);
-			[control, HLayout(*[StaticText(instrumentBox).string_(thisData[0] + ": ").stringColor_(Color.white), control.fixedWidth_(100)]), thisData[0].asSymbol];
-		});
-
-		instrumentControls = instrumentControls.flop;
-	    instrumentControls.postln;
-
-	instrumentBox.layout = VLayout(*instrumentControls[1]);
-		backingBox.layout = HLayout(
-			VLayout(
-				Button().states_([
-					["START SONG", Color.white, Color.black],
-					["STOP SONG", Color.black, Color.white]
-				]).action_({arg button;
-					if(button.value == 1,
-						{
-							this.startSong
-						},
-						{
-						}
-					)
-				});
-			),
-			VLayout()
-		);
-/*		instrumentControls.do({arg thisLayout;
-			instrumentBox.layout.add(thisLayout);
-		});*/
-
-		//instrumentBox.layout = VLayout(*instrumentControls);
-		/*
-		instrumentBox.layout_(
-			Vlayout(
-				HLayout(T)
-TextField(makeView.value(instrumentBox, "Tempo:")
-				.action_({arg field;
-					tempo = field.value.asInteger;
-				})
-					.valueAction_(120)],
-
-				[PopUpMenu(makeView.value(instrumentBox, 160@20, "Instrument:"), 80@20)
-				.items_(instrumentNames)
-				.action_({arg field;
-					curInstrument = field.item.asSymbol;
-				}).valueAction_(instrumentNames[0])],
-
-				[TextField(makeView.value(instrumentBox, 160@20, "Key:"), 80@20)
-				.action_({arg field;
-					curKey = field.value.asSymbol;
-				})
-					.valueAction_("C")],
-
-				[TextField(makeView.value(instrumentBox, 160@20, "Octave:"), 80@20)
-				.action_({arg field;
-					curOctave = field.value.asInteger;
-				})
-					.valueAction_("4")],
-
-				[TextField(makeView.value(instrumentBox, 160@20, "Scale:"), 80@20)
-				.action_({arg field;
-				})
-					.valueAction_("major")],
+		btn = Button(controlBox, 180@40)
+		.states_([
+			["START", Color.white, Color.black],
+			["STOP", Color.black, Color.white]
+		])
+		.font_(Font.new().pixelSize_(15))
+		.action_({arg button;
+			if(button.value == 1,
+				{
+					this.startSequence;
+					this.startPattern;
+				},
+				{
+					this.stopSequence;
+					this.stopPattern;
+				}
 			)
-		)
-		*/
+		});
+
+		TextField(makeView.value(instrumentBox, 160@20, "Tempo:"), 80@20)
+		.action_({arg field;
+			tempo = field.value.asInteger;
+		})
+		.valueAction_(120);
+
+		PopUpMenu(makeView.value(instrumentBox, 160@20, "Instrument:"), 80@20)
+		.items_(instrumentNames)
+		.action_({arg field;
+			curInstrument = field.item.asSymbol;
+		}).valueAction_(instrumentNames[0]);
+
+		TextField(makeView.value(instrumentBox, 160@20, "Key:"), 80@20)
+		.action_({arg field;
+			curKey = field.value.asSymbol;
+		})
+		.valueAction_("C");
+
+		TextField(makeView.value(instrumentBox, 160@20, "Octave:"), 80@20)
+		.action_({arg field;
+			curOctave = field.value.asInteger;
+		})
+		.valueAction_("4");
+
+		TextField(makeView.value(instrumentBox, 160@20, "Scale:"), 80@20)
+		.action_({arg field;
+		})
+		.valueAction_("major");
 	}
 
 
@@ -301,150 +160,43 @@ TextField(makeView.value(instrumentBox, "Tempo:")
 		}).add;
 
 		SynthDef.new(\playSound,
-			{arg buffer, gain = -6, att = 0.05, sus = 0.2, rel = 0.3, dura = 0.2, ratio = 1;
+			{arg buffer, gain = -6, a = 0.05, d = 0.1 , s = 0.1, r = 0.5, dur = 0.3, ratio = 1;
 				var in, out, env, amp;
 				amp = gain.dbamp;
 				//env = EnvGen.kr(Env.adsr(a, d, s, r), levelScale: amp, timeScale: dur, doneAction: 2);
 				in = PlayBuf.ar(1, buffer, BufRateScale.kr(buffer) * ratio);
 				out = in!2;
-				out = out *  EnvGen.kr(Env([0,1, 1, 0], [att, sus, rel]),  timeScale: BufDur.kr(buffer) * dura, doneAction: 2);
-				// out = out *  EnvGen.kr(Env.adsr(att, dec, susL, rel), Select.kr(sustaining, [Trig1.kr(1, BufDur.kr(buffer)).neg + 1, gate]),  doneAction: 2);
-				//out = out *  EnvGen.kr(Env.adsr(a, d, s, r), gate,  doneAction: 2);
+				out = out *  EnvGen.kr(Env([0, 1, 0], [0.1, 0.9]),  timeScale: BufDur.kr(buffer) * dur, doneAction: 2);
 				Out.ar(0, out);
 			}).add;
-
-		SynthDef.new(\playSong,
-			{arg buffer, gain = -6, turnOff = 1;
-				var in, out, env, amp;
-				amp = gain.dbamp;
-				//env = EnvGen.kr(Env.adsr(a, d, s, r), levelScale: amp, timeScale: dur, doneAction: 2);
-				in = PlayBuf.ar(2, buffer, BufRateScale.kr(buffer));
-
-				out = in * turnOff;
-				DetectSilence.ar(out, doneAction: 2);
-				out = out * amp;
-				Out.ar(0, out);
-			}).add;
-
 	}
 
 	startSequence {
 		oscdef = OSCdef(
 			\playOsc,
 			{ |msg, time, addr|
-				msg.postln;
 				note = msg[1] - 1;
-				this.setRatio();
 			},
 			'/fred'
 		)
 	}
 
-	startClock {
-		clock = TempoClock.new(tempo/60);
-	}
-
-	startSong {
-		var playSong, startUser;
-
-        instrumentControls[2].do({arg thisSymbol, index;
-			if (songs[curSong].includesKey(thisSymbol), {
-				if (thisSymbol != \Scale, {
-					instrumentControls[0][index].valueAction_(songs[curSong][thisSymbol]);
-				}, {
-					songs[curSong][thisSymbol].class.postln;
-					instrumentControls[0][index].valueAction_(	scales.asSortedArray.flop[0].indexOf(songs[curSong][thisSymbol].asSymbol));
-				});
-			})
-	    });
-
-		this.stopClock;
-		this.startClock;
-		this.showInfo;
-
-		playSong = {
-			Synth(\playSong, [\buffer: songs[curSong][\Buffer]]);
-		};
-
-		startUser = {
-			{btn.valueAction_(1)}.defer;
-		};
-
-		clock.schedAbs(clock.nextBar, playSong);
-		clock.schedAbs(8, startUser);
-	}
-
-	showInfo {
-		var postInfo;
-		postInfo = {
-			//userNotes.postln;
-			("beats :" + (clock.beats.floor%clock.beatsPerBar + 1)).postln;
-			("bar :" + (clock.bar + 1)).postln;
-			"".postln;
-			//note.postln;
-			1
-		};
-		clock.schedAbs(clock.nextBar, postInfo);
-	}
-
-	scheduleNotes {
-		userClock = TempoClock.new(tempo/60);
-		schedFunc = {
-			{userNotes[0][note].animate}.defer;
-			Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio]);
-			1
-		};
-		userClock.schedAbs(userClock.timeToNextBeat, schedFunc);
-	}
-
-	quantNotes {
-		clock.schedAbs(clock.nextBar, {this.scheduleNotes});
-	}
-
-	stopClock {
-		clock !? {clock.clear};
-		clock = nil;
-		clock.postln;
-	}
-
-	stopUserClock {
-		userClock.clear;
-		userClock !? {userClock.clear};
-		userClock = nil;
-		userClock.postln;
-	}
-
-	/*setTempo {arg tempo;
-		clock !? {clock.tempo(tempo/60)};
-	}*/
-
 	initPattern {
-		userPattern = Pdef(\userPattern,
-			Pbind(
-				\instrument, \playSound,
-				\dur, 1,
-				\buffer, instrument[\AltoSax][70],
-				\ratio, curRatio
-			)
-		).quant_(1);
-
-/*		userPattern = Task ({
+		userPattern = Task ({
 			loop {
-/*				if(isSustaining.not, {
-
+					{userNotes[note].animate}.defer;
 					this.play(note);
-				});
-				{
-					if(isSustaining.not, {
-						this.release;
-					});
-				}.defer(duration); //duration from the buffer, but depends what you want to do with envelope*/
-				{userNotes[note].animate}.defer;
-				this.play(note);
-				"test".postln;
-				(60.0 / tempo.max(1)).wait;
+					(60.0 / tempo).wait;
 			}
-		}, TempoClock);*/
+		}, TempoClock);
+	}
+
+	startPattern {
+		userPattern.start;
+	}
+
+	stopPattern {
+		userPattern.stop;
 	}
 
 	stopSequence {
@@ -459,24 +211,28 @@ TextField(makeView.value(instrumentBox, "Tempo:")
 		^btn;
 	}
 
-	setRatio {
-		var rout, thisBuf, min, max, midiDif, major, thisNote;
-		    thisNote = keys[curKey] + scales[curScale][note] + (12 * curOctave) + 24;
-			min = instrument[curInstrument][\min];
-			max = instrument[curInstrument][\max];
-			midiDif = 0;
-			case
-			{thisNote < min} {
-				midiDif = (thisNote - min);
-				thisNote = min;
-			}
-			{thisNote > max} {
-				midiDif = (thisNote - max);
-				thisNote = max;
-			};
-			curRatio = midiDif.midiratio;
-			midiNote = thisNote;
-		    curRatio.postln;
-			instrument[curInstrument][thisNote].postln;
+	play {arg note;
+		var rout, thisBuf, min, max, ratio, midiDif, major;
+		major = Scale.major.degrees ++ 12;
+		note = keys[curKey] + major[note] + (12 * curOctave) + 24;
+		min = instrument[curInstrument][\min];
+		max = instrument[curInstrument][\max];
+		midiDif = 0;
+		case
+		{note < min} {
+			midiDif = (note - min);
+			note = min;
+		}
+		{note > max} {
+			midiDif = (note - max);
+			note = max;
+		};
+		ratio = midiDif.midiratio;
+
+		note.postln;
+		ratio.postln;
+		instrument[curInstrument][note].postln;
+
+		Synth.new(\playSound, [\buffer, instrument[curInstrument][note], \dur, 0.3, \ratio, ratio]);
 	}
 }

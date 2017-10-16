@@ -70,12 +70,9 @@ EncephalophoneGUI {
 
 		// Creates buttons for filter selection
 		modeBox.put(\buttons, CompositeView(gui, Rect.new(0, 0, (350), space)));
-		// modeBox.put(\buttons, View(gui));
-		// modeBox[\buttons].decorator_(FlowLayout(modeBox[\buttons].bounds, 5@5, 5@5));
-		modeBox[\buttons].layout_(HLayout());
+		modeBox[\buttons].decorator_(FlowLayout(modeBox[\buttons].bounds, 5@5, 5@5));
 		modeTypes.do({arg item;
-			// selectMode.put(item, Button(modeBox[\buttons], 100@40)
-			selectMode.put(item, Button(modeBox[\buttons]).fixedWidth_(100)
+			selectMode.put(item, Button(modeBox[\buttons], 100@40)
 				.states_([
 					[item.asString, Color.white.alpha_(0.7), Color.black.alpha_(0.7)],
 					[item.asString, Color.black.alpha_(0.7), Color.white.alpha_(0.7)]]
