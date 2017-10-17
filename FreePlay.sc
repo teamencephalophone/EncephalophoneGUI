@@ -12,7 +12,7 @@ FreePlay {
 	var curInstrument, note, keys, curRatio, scales, curScale;
 	var instrumentNames, instrumentControls;
 	var clock, userClock, pattern, bar, beat;
-	var songs, curSong;
+	var songs, curSong, curPlayingSong;
 	var schedFunc;
 	//var <isSustaining = false;
 
@@ -40,8 +40,6 @@ FreePlay {
 		//cur = Dictionary.with(*[\tempo, ->120, \instrument -> \Violin, \note -> 60]);
 		this.initSynths;
 		this.makeGUI;
-		this.initPattern;
-
 	}
 
 	addSongs {
@@ -165,7 +163,7 @@ FreePlay {
 			.action_({arg button;
 				if(button.value == 1,
 					{
-					userClock ?? {this.startClock; this.showInfo};
+					clock ?? {this.startClock; this.showInfo};
 					    this.startSequence;
 					    this.quantNotes;
 					},
@@ -183,7 +181,7 @@ FreePlay {
 			[
 				"Tempo",                                                   // name
 				TextField(),                                               // control
-				{arg field; clock !? {clock.tempo_(field.value.asInteger/60)}}, // action
+				{arg field; (userClock !? {userClock.tempo_(field.value.asInteger/60)}); tempo =  field.value.asInteger}, // action
 				120                                                          // valueAction
 			],
 			[
@@ -239,11 +237,12 @@ FreePlay {
 							this.startSong
 						},
 						{
+							this.stopSong
 						}
 					)
 				});
 			),
-			VLayout()
+			VLayout(View().fixedWidth_(400))
 		);
 /*		instrumentControls.do({arg thisLayout;
 			instrumentBox.layout.add(thisLayout);
@@ -346,24 +345,27 @@ TextField(makeView.value(instrumentBox, "Tempo:")
 
 	startSong {
 		var playSong, startUser;
-
         instrumentControls[2].do({arg thisSymbol, index;
 			if (songs[curSong].includesKey(thisSymbol), {
 				if (thisSymbol != \Scale, {
 					instrumentControls[0][index].valueAction_(songs[curSong][thisSymbol]);
 				}, {
-					songs[curSong][thisSymbol].class.postln;
 					instrumentControls[0][index].valueAction_(	scales.asSortedArray.flop[0].indexOf(songs[curSong][thisSymbol].asSymbol));
 				});
 			})
 	    });
+
+		if (btn.value == 1, {
+			btn.valueAction_(0);
+		});
 
 		this.stopClock;
 		this.startClock;
 		this.showInfo;
 
 		playSong = {
-			Synth(\playSong, [\buffer: songs[curSong][\Buffer]]);
+			curPlayingSong = Synth(\playSong, [\buffer: songs[curSong][\Buffer]]);
+			NodeWatcher(server).register(curPlayingSong);
 		};
 
 		startUser = {
@@ -374,31 +376,37 @@ TextField(makeView.value(instrumentBox, "Tempo:")
 		clock.schedAbs(8, startUser);
 	}
 
+	stopSong {
+		btn.valueAction_(0);
+		curPlayingSong.free;
+		this.stopClock;
+	}
+
 	showInfo {
 		var postInfo;
-		postInfo = {
-			//userNotes.postln;
-			("beats :" + (clock.beats.floor%clock.beatsPerBar + 1)).postln;
-			("bar :" + (clock.bar + 1)).postln;
-			"".postln;
-			//note.postln;
-			1
-		};
-		clock.schedAbs(clock.nextBar, postInfo);
+			postInfo = {
+				//userNotes.postln;
+				("beats :" + (clock.beats.floor%clock.beatsPerBar + 1)).postln;
+				("bar :" + (clock.bar + 1)).postln;
+				"".postln;
+				//note.postln;
+				1
+			};
+			clock.schedAbs(clock.nextBar, postInfo);
 	}
 
 	scheduleNotes {
-		userClock = TempoClock.new(tempo/60);
+		userClock ?? {userClock = TempoClock.new(tempo/60)};
 		schedFunc = {
 			{userNotes[0][note].animate}.defer;
 			Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio]);
 			1
 		};
-		userClock.schedAbs(userClock.timeToNextBeat, schedFunc);
+		userClock.schedAbs(userClock.nextTimeOnGrid, schedFunc);
 	}
 
 	quantNotes {
-		clock.schedAbs(clock.nextBar, {this.scheduleNotes});
+		clock !? {clock.schedAbs(clock.beats.floor + 1, {this.scheduleNotes})};
 	}
 
 	stopClock {
@@ -409,42 +417,8 @@ TextField(makeView.value(instrumentBox, "Tempo:")
 
 	stopUserClock {
 		userClock.clear;
-		userClock !? {userClock.clear};
 		userClock = nil;
 		userClock.postln;
-	}
-
-	/*setTempo {arg tempo;
-		clock !? {clock.tempo(tempo/60)};
-	}*/
-
-	initPattern {
-		userPattern = Pdef(\userPattern,
-			Pbind(
-				\instrument, \playSound,
-				\dur, 1,
-				\buffer, instrument[\AltoSax][70],
-				\ratio, curRatio
-			)
-		).quant_(1);
-
-/*		userPattern = Task ({
-			loop {
-/*				if(isSustaining.not, {
-
-					this.play(note);
-				});
-				{
-					if(isSustaining.not, {
-						this.release;
-					});
-				}.defer(duration); //duration from the buffer, but depends what you want to do with envelope*/
-				{userNotes[note].animate}.defer;
-				this.play(note);
-				"test".postln;
-				(60.0 / tempo.max(1)).wait;
-			}
-		}, TempoClock);*/
 	}
 
 	stopSequence {
