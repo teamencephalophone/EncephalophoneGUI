@@ -15,7 +15,7 @@ FreePlay {
 	var songs, curSong, curPlayingSong;
 	var schedFunc, envView;
 	var att, rel, dec, attCurve, relCurve, decCurve;
-	var userGain, songGain, start, end;
+	var userGain, songGain, start, end, songBtn;
 	//var <isSustaining = false;
 
 	*new {arg server, gui;
@@ -341,14 +341,14 @@ FreePlay {
 
 		sliderTextActions = [
 			{arg field;	userGain = field.value.asFloat; controlDict[\user][1].value_(userGain.linlin(-96, 0, 0, 1)); this.updateEnvView()},
-			{arg field;	songGain = field.value.asFloat; controlDict[\song][1].value_(songGain.linlin(-96, 0, 0, 1)); this.updateEnvView()},
+			{arg field;	songGain = field.value.asFloat; controlDict[\song][1].value_(songGain.linlin(-96, 0, 0, 1)); this.setSongGain()},
 		];
 
 		sliderTextValues = [-3, -3];
 
 		sliderActions = [
 			{arg field;	userGain = field.value.linlin(0, 1, -96, 0);  dec.postln; controlDict[\user][0].value_(userGain.round(0.1)); this.updateEnvView()},
-			{arg field;	songGain = field.value.linlin(0, 1, -96, 0); controlDict[\song][0].value_(songGain.round(0.1)); this.updateEnvView()},
+			{arg field;	songGain = field.value.linlin(0, 1, -96, 0); controlDict[\song][0].value_(songGain.round(0.1)); this.setSongGain()},
 		];
 
 		sliderViews = [
@@ -367,20 +367,7 @@ FreePlay {
 			HLayout(thisData[0], [thisData[4].fixedHeight_(25)], [thisData[1]])
 		});
 
-		backingBox.layout = VLayout(
-			VLayout(
-				View().background_(Color.grey.alpha_(0.2)).layout_(
-					VLayout(
-						*sliderViews
-					)
-				),
-				HLayout(
-					StaticText().string_("Song: ").font_(Font().pixelSize_(15)).stringColor_(Color.white),
-					PopUpMenu().items_(songs.asSortedArray.flop[0]).fixedWidth_(200)
-				),
-				nil,
-
-				Button().states_([
+				songBtn = Button().states_([
 					["START SONG", Color.white, Color.black],
 					["STOP SONG", Color.black, Color.white]
 				]).action_({arg button;
@@ -393,6 +380,30 @@ FreePlay {
 						}
 					)
 				});
+
+		controlDict.put(\songPopUp,
+				PopUpMenu().items_(songs.asSortedArray.flop[0]).fixedWidth_(200)
+					.action_({arg object;
+						if(songBtn.value == 1, {
+							songBtn.valueAction_(0)
+						});
+						curSong = object.item.asSymbol;
+					})
+		);
+
+		backingBox.layout = VLayout(
+			VLayout(
+				View().background_(Color.grey.alpha_(0.2)).layout_(
+					VLayout(
+						*sliderViews
+					)
+				),
+				HLayout(
+					StaticText().string_("Song: ").font_(Font().pixelSize_(15)).stringColor_(Color.white),
+					controlDict[\songPopUp];
+				),
+				nil,
+				songBtn
 			)
 		);
 	}
@@ -421,10 +432,7 @@ FreePlay {
 				amp = gain.dbamp;
 				//env = EnvGen.kr(Env.adsr(a, d, s, r), levelScale: amp, timeScale: dur, doneAction: 2);
 				in = PlayBuf.ar(2, buffer, BufRateScale.kr(buffer));
-
-				out = in * turnOff;
-				DetectSilence.ar(out, doneAction: 2);
-				out = out * amp;
+				out = in * amp;
 				Out.ar(0, out);
 		}).add;
 
@@ -468,7 +476,7 @@ FreePlay {
 
 		playSong = {
 			curPlayingSong = Synth(\playSong, [\buffer: songs[curSong][\Buffer]]);
-			NodeWatcher(server).register(curPlayingSong);
+			NodeWatcher.newFrom(server).register(curPlayingSong);
 		};
 
 		startUser = {
@@ -535,6 +543,12 @@ FreePlay {
 
 	getBtn {
 		^btn;
+	}
+
+	setSongGain {
+		if(curPlayingSong.isPlaying, {
+			curPlayingSong.set(\gain, songGain)
+		});
 	}
 
 	setEnvView {
