@@ -15,6 +15,7 @@ FreePlay {
 	var songs, curSong, curPlayingSong;
 	var schedFunc, envView;
 	var att, rel, dec, attCurve, relCurve, decCurve;
+	var userGain, songGain, start, end;
 	//var <isSustaining = false;
 
 	*new {arg server, gui;
@@ -29,6 +30,9 @@ FreePlay {
 		curOctave = 4;
 		curKey = 'C';
 		curScale = \major;
+		userGain = -6;
+		start = 0;
+		end = 1;
 		instrument = Dictionary.new;
 		keys = Dictionary.new;
 		scales = Dictionary.new;
@@ -114,6 +118,8 @@ FreePlay {
 		var startView;
 		var envKnobNames, envViews, envActions, envValues, envKnobActions, envKnobValues;
 		var curveNames, curveViews, curveActions, curveValues, curveKnobActions, curveKnobValues;
+		var sliderNames, sliderViews, sliderTextActions, sliderTextValues, sliderActions, sliderValues;
+		var durationSlider, durationText;
 
 		"Got to GUI".postln;
 		controlDict = Dictionary.new;
@@ -216,46 +222,11 @@ FreePlay {
 		instrumentControls.postln;
 
 		instrumentBox.layout = VLayout(*instrumentControls[1]);
-		backingBox.layout = VLayout(
-			VLayout(
-				View().background_(Color.grey.alpha_(0.2)).layout_(
-					VLayout(
-						*["user: ", "song: "].collect({arg thisString;
-							HLayout(
-								StaticText().string_(thisString).font_(Font().pixelSize_(15)).stringColor_(Color.white).align_(\left),
-								Slider().orientation_(\horizontal).fixedWidth_(180)
-							)
-						})
-					)
-				),
-				HLayout(
-					StaticText().string_("Song: ").font_(Font().pixelSize_(15)).stringColor_(Color.white),
-					PopUpMenu().items_(songs.asSortedArray.flop[0]).fixedWidth_(200)
-				),
-				nil,
-
-				Button().states_([
-					["START SONG", Color.white, Color.black],
-					["STOP SONG", Color.black, Color.white]
-				]).action_({arg button;
-					if(button.value == 1,
-						{
-							this.startSong
-						},
-						{
-							this.stopSong
-						}
-					)
-				});
-			)
-		);
-
 
 		envView = EnvelopeView()
 		.drawLines_(true)
 		.selectionColor_(Color.red)
 		.thumbSize_(5);
-
 
 		envKnobNames = ["att", "dec", "rel"].collect({arg thisString, index;
 			StaticText().string_(thisString).font_(Font().pixelSize_(10)).stringColor_(Color.white).align_(\center)
@@ -295,9 +266,9 @@ FreePlay {
 		curveNames = [\attCurve, \decCurve, \relCurve];
 
 		curveActions = [
-			{arg field;	attCurve = field.value.asFloat; controlDict[\attCurve][1].value_(attCurve); this.updateEnvView()},
-			{arg field;	decCurve = field.value.asFloat; controlDict[\decCurve][1].value_(decCurve); this.updateEnvView()},
-			{arg field;	relCurve = field.value.asFloat; controlDict[\relCurve][1].value_(relCurve);  this.setEnvView()}
+			{arg field;	attCurve = field.value.asFloat; controlDict[\attCurve][1].value_(attCurve.linlin(-7, 7, 0, 1)); this.updateEnvView()},
+			{arg field;	decCurve = field.value.asFloat; controlDict[\decCurve][1].value_(decCurve.linlin(-7, 7, 0, 1)); this.updateEnvView()},
+			{arg field;	relCurve = field.value.asFloat; controlDict[\relCurve][1].value_(relCurve.linlin(-7, 7, 0, 1));  this.setEnvView()}
 		];
 
 		curveValues = [-1, -1, 1];
@@ -325,6 +296,21 @@ FreePlay {
 			VLayout([thisData[4], align: \center], [thisData[1], align: \center])
 		});
 
+		durationText = [["0", \left], ["duration", \center], ["1", \right]].collect({arg thisData;
+			var text = StaticText().string_(thisData[0]).font_(Font().pixelSize_(10)).stringColor_(Color.white).align_(thisData[1]).fixedWidth_(60);
+			controlDict.put(thisData[1], text);
+			text;
+		});
+
+		durationSlider = RangeSlider()
+		.orientation_(\horizontal)
+		.action_({arg object;
+			start = object.lo.round(0.01);
+			end = object.hi.round(0.01);
+			controlDict[\left].string_(object.lo.round(0.01));
+			controlDict[\right].string_(object.hi.round(0.01));
+		});
+
 		synthBox.layout_(
 			VLayout(
 				envView,
@@ -340,41 +326,92 @@ FreePlay {
 				),
 				HLayout(
 					VLayout(
-						RangeSlider().orientation_(\horizontal),
+						durationSlider,
 						HLayout(
-							*[["0", \left], ["duration", \center], ["1", \right]].collect({arg thisData;
-								StaticText().string_(thisData[0]).font_(Font().pixelSize_(10)).stringColor_(Color.white).align_(thisData[1])
-							})
+							*durationText
 						)
 					)
 				)
 			)
-		)
+		);
+
+		sliderNames = ["user", "song"].collect({arg thisString, index;
+			StaticText().string_(thisString).font_(Font().pixelSize_(12)).stringColor_(Color.white).align_(\center).fixedSize_(40)
+		});
+
+		sliderTextActions = [
+			{arg field;	userGain = field.value.asFloat; controlDict[\user][1].value_(userGain.linlin(-96, 0, 0, 1)); this.updateEnvView()},
+			{arg field;	songGain = field.value.asFloat; controlDict[\song][1].value_(songGain.linlin(-96, 0, 0, 1)); this.updateEnvView()},
+		];
+
+		sliderTextValues = [-3, -3];
+
+		sliderActions = [
+			{arg field;	userGain = field.value.linlin(0, 1, -96, 0);  dec.postln; controlDict[\user][0].value_(userGain.round(0.1)); this.updateEnvView()},
+			{arg field;	songGain = field.value.linlin(0, 1, -96, 0); controlDict[\song][0].value_(songGain.round(0.1)); this.updateEnvView()},
+		];
+
+		sliderViews = [
+			sliderNames,
+			Array.fill(sliderNames.size, {TextField()}),
+			sliderTextActions,
+			sliderTextValues,
+			Array.fill(sliderNames.size, {Slider().orientation_(\horizontal).fixedWidth_(140)}),
+			sliderActions
+		].flop.collect({arg thisData;
+			var name = thisData[0].string.asSymbol;
+			controlDict.put(name, [thisData[1], thisData[4]]);
+			controlDict[name][0].action_(thisData[2]);
+			controlDict[name][1].action_(thisData[5]);
+			controlDict[name][0].valueAction_(thisData[3]);
+			HLayout(thisData[0], [thisData[4].fixedHeight_(25)], [thisData[1]])
+		});
+
+		backingBox.layout = VLayout(
+			VLayout(
+				View().background_(Color.grey.alpha_(0.2)).layout_(
+					VLayout(
+						*sliderViews
+					)
+				),
+				HLayout(
+					StaticText().string_("Song: ").font_(Font().pixelSize_(15)).stringColor_(Color.white),
+					PopUpMenu().items_(songs.asSortedArray.flop[0]).fixedWidth_(200)
+				),
+				nil,
+
+				Button().states_([
+					["START SONG", Color.white, Color.black],
+					["STOP SONG", Color.black, Color.white]
+				]).action_({arg button;
+					if(button.value == 1,
+						{
+							this.startSong
+						},
+						{
+							this.stopSong
+						}
+					)
+				});
+			)
+		);
 	}
 
 
 
 	initSynths {
-		SynthDef.new(\curSynth, {arg freq = 440, amp = 0.4, dur = 0.4;
-			var sig, env, out;
-
-			sig = amp *  MdaPiano.ar(freq, decay: 0.1, release: dur);
-			DetectSilence.ar(sig, 0.01, doneAction:2);
-
-			Out.ar(0, sig);
-
-		}).add;
-
 		SynthDef.new(\playSound,
-			{arg buffer, gain = -6, att = 0.05, sus = 0.2, rel = 0.3, dura = 0.2, ratio = 1;
+			{arg buffer, gain = -6, thisAtt = 0.05, thisDec = 0.2, thisRel = 0.3, thisAttCurve = 0.05, thisDecCurve = 0.2, thisRelCurve = 0.3, thisStart = 0, thisEnd = 1, ratio = 1, midi = 50;
 				var in, out, env, amp;
+				var startPos, endPos;
 				amp = gain.dbamp;
-				//env = EnvGen.kr(Env.adsr(a, d, s, r), levelScale: amp, timeScale: dur, doneAction: 2);
-				in = PlayBuf.ar(1, buffer, BufRateScale.kr(buffer) * ratio);
+				thisDec = thisDec.dbamp;
+				startPos = thisStart * BufDur.kr(buffer);
+
+				in = PlayBuf.ar(1, buffer, BufRateScale.kr(buffer) * ratio, startPos: (startPos * server.sampleRate));
+
 				out = in!2;
-				out = out *  EnvGen.kr(Env([0,1, 1, 0], [att, sus, rel]),  timeScale: BufDur.kr(buffer) * dura, doneAction: 2);
-				// out = out *  EnvGen.kr(Env.adsr(att, dec, susL, rel), Select.kr(sustaining, [Trig1.kr(1, BufDur.kr(buffer)).neg + 1, gate]),  doneAction: 2);
-				//out = out *  EnvGen.kr(Env.adsr(a, d, s, r), gate,  doneAction: 2);
+				out = out *  EnvGen.kr(Env([0, amp, amp * thisDec, 0], [thisAtt, 1.0 - (thisAtt + rel), thisRel], [thisAttCurve, thisDecCurve, thisRelCurve]),  timeScale: (BufDur.kr(buffer) * thisEnd) - startPos, doneAction: 2);
 				Out.ar(0, out);
 		}).add;
 
@@ -416,7 +453,7 @@ FreePlay {
 				if (thisSymbol != \Scale, {
 					instrumentControls[0][index].valueAction_(songs[curSong][thisSymbol]);
 				}, {
-					instrumentControls[0][index].valueAction_(	scales.asSortedArray.flop[0].indexOf(songs[curSong][thisSymbol].asSymbol));
+					instrumentControls[0][index].valueAction_(scales.asSortedArray.flop[0].indexOf(songs[curSong][thisSymbol].asSymbol));
 				});
 			})
 		});
@@ -465,7 +502,8 @@ FreePlay {
 		userClock ?? {userClock = TempoClock.new(tempo/60)};
 		schedFunc = {
 			{userNotes[0][note].animate}.defer;
-			Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio]);
+			//Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio]);
+		Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio, \thisAtt, att, \thisDec, dec, \thisRel, rel, \thisAttCurve, attCurve, \thisDecCurve, decCurve, \thisRelCurve, relCurve, \thisStart, start, \thisEnd, end, \gain, userGain, \midi, midiNote]);
 			1
 		};
 		userClock.schedAbs(userClock.nextTimeOnGrid, schedFunc);
@@ -521,7 +559,7 @@ FreePlay {
 	}
 
 	updateEnvView {
-		envView.setEnv(Env([0, 0.7, 0.7 * dec.dbamp, 0], [att, 1.0 - (att + rel), rel], [attCurve, decCurve, relCurve]));
+		envView.setEnv(Env([0, userGain.dbamp, userGain.dbamp * dec.dbamp, 0], [att, 1.0 - (att + rel), rel], [attCurve, decCurve, relCurve]));
 	}
 
 	setRatio {
