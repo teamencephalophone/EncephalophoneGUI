@@ -35,13 +35,14 @@ EncephalophoneGUI {
 
 		gui = Window.new("EncGUI", Rect(200, 600, modeDim[0][0], modeDim[0][1] + space))
 		.visible_(true)
-		.alwaysOnTop_(true)
+		.front
 		.background_(Color.black)
 		.onClose_(
 			{
 				server.freeAll;
 				SystemClock.clear;
 				server.quit;
+				freeplay.stopClock;
 				[tester, freeplay, calibrate].do({arg item;
 					item.getOscDef.free;
 				});
@@ -62,7 +63,7 @@ EncephalophoneGUI {
 				{
 					if (thisKey[0] == \Tester,
 						{tester = Tester(server, modeView, gui)},
-						{freeplay = FreePlay(server, modeView)}
+						{freeplay = FreePlay(server, modeView, gui)}
 					)
 				}
 			);
@@ -92,9 +93,10 @@ EncephalophoneGUI {
 					{
 						if (key != \FreePlay && modeBox[\FreePlay].visible,
 							{
-								if(freeplay.getBtn.value == 1,
+								freeplay.getBtn.valueAction_(1);
+/*								if(freeplay.getBtn.value == 1,
 									{freeplay.getBtn.valueAction_(0)}
-								)
+								);		*/
 							}
 						);
 						modeBox.values.do({arg value; value.visible_(false)});

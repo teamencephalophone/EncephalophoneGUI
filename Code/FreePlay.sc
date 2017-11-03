@@ -17,12 +17,22 @@ FreePlay {
 	var att, rel, dec, attCurve, relCurve, decCurve;
 	var userGain, songGain, start, end, songBtn;
 	var controlDict;
+	var window;
+	var presetName, curPreset;
+	var presets, presetDict;
 
-	*new {arg server, gui;
-		^super.new.init(server, gui);
+	*new {arg server, gui, window;
+		^super.new.init(server, gui, window);
 	}
 
-	init {arg thisServer, thisGUI;
+	init {arg thisServer, thisGUI, thisWindow;
+		presetName = "";
+		presetDict = Dictionary.new;
+		presets = PathName(Platform.userAppSupportDir ++ "/downloaded-quarks/EncephalophoneGUI/Presets/").entries.do({arg thisEntry;
+			presetDict.put(thisEntry.fileNameWithoutExtension, thisEntry.fullPath);
+		});
+		curPreset = Array.newFrom(presetDict.keys)[0];
+		window = thisWindow;
 		note = 0;
 		gui = thisGUI;
 		server = thisServer;
@@ -233,17 +243,17 @@ FreePlay {
 		});
 
 		envActions = [
-			{arg field;	att = field.value.asFloat; controlDict[\att][1].value_(att); this.setEnvView()},
-			{arg field;	dec = field.value.asFloat; controlDict[\dec][1].value_(dec.linlin(-96, 0, 0, 1)); this.setEnvView()},
-			{arg field;	rel = field.value.asFloat; controlDict[\rel][1].value_(rel);  this.setEnvView()}
+			{arg field;	att = field.value.asFloat; controlDict[\att][1].value_(att); this.setEnvView(\att)},
+			{arg field;	dec = field.value.asFloat; controlDict[\dec][1].value_(dec.linlin(-96, 0, 0, 1)); this.setEnvView(\dec)},
+			{arg field;	rel = field.value.asFloat; controlDict[\rel][1].value_(rel);  this.setEnvView(\rel)}
 		];
 
 		envValues = [0.1, -6, 0.6];
 
 		envKnobActions = [
-			{arg field;	att = field.value.asFloat; dec.postln; controlDict[\att][0].value_(att); this.setEnvView()},
-			{arg field;	dec = field.value.asFloat.linlin(0, 1, -96, 0);  dec.postln; controlDict[\dec][0].value_(dec); this.setEnvView()},
-			{arg field;	rel = field.value.asFloat.linlin(0, 1, 1, 0); controlDict[\rel][0].value_(rel); this.setEnvView()}
+			{arg field;	att = field.value.asFloat; dec.postln; controlDict[\att][0].value_(att); this.setEnvView(\att)},
+			{arg field;	dec = field.value.asFloat.linlin(0, 1, -96, 0);  dec.postln; controlDict[\dec][0].value_(dec); this.setEnvView(\dec)},
+			{arg field;	rel = field.value.asFloat.linlin(0, 1, 1, 0); controlDict[\rel][0].value_(rel); this.setEnvView(\rel)}
 		];
 
 		envViews = [
@@ -268,7 +278,7 @@ FreePlay {
 		curveActions = [
 			{arg field;	attCurve = field.value.asFloat; controlDict[\attCurve][1].value_(attCurve.linlin(-7, 7, 0, 1)); this.updateEnvView()},
 			{arg field;	decCurve = field.value.asFloat; controlDict[\decCurve][1].value_(decCurve.linlin(-7, 7, 0, 1)); this.updateEnvView()},
-			{arg field;	relCurve = field.value.asFloat; controlDict[\relCurve][1].value_(relCurve.linlin(-7, 7, 0, 1));  this.setEnvView()}
+			{arg field;	relCurve = field.value.asFloat; controlDict[\relCurve][1].value_(relCurve.linlin(-7, 7, 0, 1));  this.updateEnvView()}
 		];
 
 		curveValues = [-1, -1, 1];
@@ -296,23 +306,102 @@ FreePlay {
 			VLayout([thisData[4], align: \center], [thisData[1], align: \center])
 		});
 
+		controlDict.put(\duration, RangeSlider()
+			.orientation_(\horizontal)
+			.action_({arg object;
+				start = object.lo.round(0.01);
+				end = object.hi.round(0.01);
+				controlDict[\left].string_(object.lo.round(0.01));
+				controlDict[\right].string_(object.hi.round(0.01));
+		}));
+
 		durationText = [["0", \left], ["duration", \center], ["1", \right]].collect({arg thisData;
 			var text = StaticText().string_(thisData[0]).font_(Font().pixelSize_(10)).stringColor_(Color.white).align_(thisData[1]).fixedWidth_(60);
 			controlDict.put(thisData[1], text);
 			text;
 		});
 
-		durationSlider = RangeSlider()
-		.orientation_(\horizontal)
-		.action_({arg object;
-			start = object.lo.round(0.01);
-			end = object.hi.round(0.01);
-			controlDict[\left].string_(object.lo.round(0.01));
-			controlDict[\right].string_(object.hi.round(0.01));
-		});
+		controlDict.put(\presetPopUp,
+			PopUpMenu().items_(Array.newFrom(presetDict.keys))
+			.action_({arg object;
+				curPreset = object.item;
+			})
+		);
+
+		controlDict.put(\presetName,
+			TextField()
+			.action_({arg obj;
+				curPreset = obj.item;
+			});
+		);
+
+		controlDict.put(\save,
+			Button()
+			.states_([
+				["SAVE", Color.white, Color.black],
+				["SAVE", Color.black, Color.white]
+			])
+			.font_(Font.new().pixelSize_(15))
+			.action_({arg button;
+				this.makePreset;
+				button.value = 0;
+			});
+		);
+		gui.parent.postln;
+		controlDict.put(\load,
+			Button()
+			.states_([
+				["LOAD", Color.white, Color.black],
+				["LOAD", Color.black, Color.white]
+			])
+			.font_(Font.new().pixelSize_(15))
+			.action_({arg button;
+				Object.readArchive(presetDict[curPreset]).keysValuesDo({arg key, value;
+	//				key.postln;
+					key.postln;
+					controlDict[key.asSymbol].postln;
+/*					if (key != \dur, {
+						controlDict[key.asSymbol].valueAction_(value)
+					}, {
+						controlDict[\duration].start_(value[0]).end_(value[1])
+					});*/
+				});
+				button.value = 0;
+			});
+		);
+
+		controlDict.put(\sync,
+			Button()
+			.states_([
+				["SYNC", Color.white, Color.black],
+				["SYNC", Color.black, Color.white]
+			])
+			.font_(Font.new().pixelSize_(15))
+			.action_({arg button;
+				if (button = 1, {
+
+				}, {
+
+				});
+			});
+		);
 
 		synthBox.layout_(
 			VLayout(
+				HLayout(
+					StaticText().string_("Presets:").font_(Font().pixelSize_(15)).stringColor_(Color.white).align_(\left).fixedWidth_(60),
+					controlDict[\presetPopUp]
+				),
+				HLayout(
+					*[\load, \sync].collect({arg thisSymb;
+						controlDict[thisSymb];
+					})
+				),
+				HLayout(
+					StaticText().string_("Name:").font_(Font().pixelSize_(15)).stringColor_(Color.white).align_(\left).fixedWidth_(60),
+					controlDict[\presetName],
+					controlDict[\save]
+				),
 				envView,
 				HLayout(
 					HLayout(
@@ -326,7 +415,7 @@ FreePlay {
 				),
 				HLayout(
 					VLayout(
-						durationSlider,
+						controlDict[\duration],
 						HLayout(
 							*durationText
 						)
@@ -367,25 +456,25 @@ FreePlay {
 			HLayout(thisData[0], [thisData[4].fixedHeight_(25)], [thisData[1]])
 		});
 
-				songBtn = Button().states_([
-					["START SONG", Color.white, Color.black],
-					["STOP SONG", Color.black, Color.white]
-				]).action_({arg button;
-					if(button.value == 1,
-						{
-							this.startSong
-						},
-						{
-							this.stopSong
-						}
-					)
-				});
+		songBtn = Button().states_([
+			["START SONG", Color.white, Color.black],
+			["STOP SONG", Color.black, Color.white]
+		]).action_({arg button;
+			if(button.value == 1,
+				{
+					this.startSong
+				},
+				{
+					this.stopSong
+				}
+			)
+		});
 
 		controlDict.put(\songPopUp,
-				PopUpMenu().items_(songs.asSortedArray.flop[0]).fixedWidth_(200)
-					.action_({arg object;
-						curSong = object.item.asSymbol;
-					})
+			PopUpMenu().items_(songs.asSortedArray.flop[0]).fixedWidth_(200)
+			.action_({arg object;
+				curSong = object.item.asSymbol;
+			})
 		);
 
 		controlDict.put(\info,
@@ -439,6 +528,9 @@ FreePlay {
 	}
 
 
+		makePreset {
+			Dictionary.new.putPairs([\att, att, \dec, dec, \rel, rel, \attCurve, attCurve, \decCurve, decCurve, \relCurve, relCurve, \dur, [start, end]]).writeArchive(Platform.userAppSupportDir ++ "/downloaded-quarks/EncephalophoneGUI/Presets/" ++ presetName ++ ".txt");
+		}
 
 	initSynths {
 		SynthDef.new(\playSound,
@@ -514,7 +606,7 @@ FreePlay {
 		};
 
 		clock.schedAbs(clock.nextBar, playSong);
-		clock.schedAbs(8, startUser);
+		clock.schedAbs(7, startUser);
 	}
 
 	stopSong {
@@ -548,7 +640,7 @@ FreePlay {
 		schedFunc = {
 			{userNotes[0][note].animate}.defer;
 			//Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio]);
-		Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio, \thisAtt, att, \thisDec, dec, \thisRel, rel, \thisAttCurve, attCurve, \thisDecCurve, decCurve, \thisRelCurve, relCurve, \thisStart, start, \thisEnd, end, \gain, userGain, \midi, midiNote]);
+			Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio, \thisAtt, att, \thisDec, dec, \thisRel, rel, \thisAttCurve, attCurve, \thisDecCurve, decCurve, \thisRelCurve, relCurve, \thisStart, start, \thisEnd, end, \gain, userGain, \midi, midiNote]);
 			1
 		};
 		userClock.schedAbs(userClock.nextTimeOnGrid, schedFunc);
@@ -579,7 +671,7 @@ FreePlay {
 	}
 
 	getBtn {
-		^btn;
+		^controlDict[\clock];
 	}
 
 	setSongGain {
@@ -588,19 +680,20 @@ FreePlay {
 		});
 	}
 
-	setEnvView {
-		if (att < 0.01, {
-			att = 0.01;
+	setEnvView {arg knob;
+		if (att < 0, {
+			att = 0;
 		});
-		if(rel < 0.01, {
-			rel = 0.01
+		if(rel < 0, {
+			rel = 0
 		});
 		if ((att + rel) > 1.0, {
-			if (att > rel, {
+			if (knob == \att, {
 				rel = 1.0 - att;
-
+				{controlDict[\rel][1].valueAction_(1.0 - rel)}.defer;
 			}, {
 				att = 1.0 - rel;
+				{controlDict[\att][1].valueAction_(att)}.defer;
 			})
 		});
 		if (dec > 0,
