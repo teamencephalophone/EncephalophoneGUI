@@ -6,10 +6,10 @@ p = [
 	// Dictionary
 	0, [ array: o[1],  size: 7 ],  
 	// Array
-	1, [ 'rel',  0.6,  'attCurve',  -1.0,  
-		nil,  nil,  'att',  0.1,  
-		'reCurve',  1.0,  'dec',  -6.0,  
-		'dur',  o[2],  nil,  nil,  
+	1, [ 'rel',  0,  'attCurve',  -1.0,  
+		'relCurve',  1.0,  'att',  0.73,  
+		'dur',  o[2],  'dec',  -6.0,  
+		nil,  nil,  nil,  nil,  
 		nil,  nil,  nil,  nil,  
 		'decCurve',  -1.0,  nil,  nil,  
 		nil,  nil,  nil,  nil,  

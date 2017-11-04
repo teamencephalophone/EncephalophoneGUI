@@ -6,15 +6,15 @@ p = [
 	// Dictionary
 	0, [ array: o[1],  size: 7 ],  
 	// Array
-	1, [ 'rel',  0.76,  'attCurve',  -1.0,  
-		nil,  nil,  'att',  0.1,  
-		'reCurve',  1.0,  'dec',  -6.0,  
-		'dur',  o[2],  nil,  nil,  
+	1, [ 'rel',  0.72,  'attCurve',  -2.4,  
+		'relCurve',  -6.44,  'att',  0.05,  
+		'dur',  o[2],  'dec',  -4.8,  
 		nil,  nil,  nil,  nil,  
-		'decCurve',  -1.0,  nil,  nil,  
+		nil,  nil,  nil,  nil,  
+		'decCurve',  -1.14,  nil,  nil,  
 		nil,  nil,  nil,  nil,  
 		nil,  nil,  nil,  nil ],  
 	// Array
-	2, [ 0,  1 ]
+	2, [ 0.0,  0.28 ]
 ];
 prUnarchive(o,p);

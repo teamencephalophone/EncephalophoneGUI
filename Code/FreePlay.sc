@@ -19,7 +19,7 @@ FreePlay {
 	var controlDict;
 	var window;
 	var presetName, curPreset;
-	var presets, presetDict;
+	var presets, presetDict, syncFlag;
 
 	*new {arg server, gui, window;
 		^super.new.init(server, gui, window);
@@ -31,6 +31,7 @@ FreePlay {
 		presets = PathName(Platform.userAppSupportDir ++ "/downloaded-quarks/EncephalophoneGUI/Presets/").entries.do({arg thisEntry;
 			presetDict.put(thisEntry.fileNameWithoutExtension, thisEntry.fullPath);
 		});
+		syncFlag = true;
 		curPreset = Array.newFrom(presetDict.keys)[0];
 		window = thisWindow;
 		note = 0;
@@ -182,56 +183,34 @@ FreePlay {
 
 		controlBox.layout = VLayout(btn, instrumentBox);
 
+		controlDict.put(\presetPopUp,
+			PopUpMenu().items_(presetDict.asSortedArray.flop[0])
+			.action_({arg object;
+				curPreset = object.item;
+			})
+		);
 
-		instrumentControls = [
-			[
-				"Tempo",                                                   // name
-				TextField(),                                               // control
-				{arg field; (userClock !? {userClock.tempo_(field.value.asInteger/60)}); tempo =  field.value.asInteger}, // action
-				120                                                          // valueAction
-			],
-			[
-				"Instrument",
-				PopUpMenu(),
-				{arg field;	curInstrument = field.item.asSymbol;},
-				instrumentNames[0],
-				instrumentNames
-			],
-			[
-				"Key",
-				TextField(),
-				{arg field;	curKey = field.value.asSymbol;},
-				"C"
-			],
-			[
-				"Octave",
-				TextField(),
-				{arg field;curOctave = field.value.asInteger;},
-				3
-			],
-			[
-				"Scale",
-				PopUpMenu(),
-				{arg field; curScale = field.item.asSymbol; curScale.postln},
-				"major",
-				scales.asSortedArray.flop[0];
-			]
-		].collect({arg thisData;
-			var control, layout;
-			control = thisData[1];
-			thisData.postln;
-			if (thisData.size > 4, {
-				control.items_(thisData[4]);
+		controlDict.put(\load,
+			Button()
+			.states_([
+				["LOAD", Color.white, Color.black],
+				["LOAD", Color.black, Color.white]
+			])
+			.font_(Font.new().pixelSize_(15))
+			.action_({arg button;
+				Object.readArchive(presetDict[curPreset]).keysValuesDo({arg key, value;
+	//				key.postln;
+					key.postln;
+					controlDict[key.asSymbol].postln;
+					if (key != \dur, {
+						controlDict[key.asSymbol][1].valueAction_(value)
+					}, {
+						controlDict[\duration].activeLo_(value[0]).activeHi_(value[1])
+					});
+				});
+				button.value = 0;
 			});
-			control.action_(thisData[2]);
-			control.valueAction_(thisData[3]);
-			[control, HLayout(*[StaticText(instrumentBox).string_(thisData[0] + ": ").stringColor_(Color.white), control.fixedWidth_(100)]), thisData[0].asSymbol];
-		});
-
-		instrumentControls = instrumentControls.flop;
-		instrumentControls.postln;
-
-		instrumentBox.layout = VLayout(*instrumentControls[1]);
+		);
 
 		envView = EnvelopeView()
 		.drawLines_(true)
@@ -321,20 +300,6 @@ FreePlay {
 			text;
 		});
 
-		controlDict.put(\presetPopUp,
-			PopUpMenu().items_(Array.newFrom(presetDict.keys))
-			.action_({arg object;
-				curPreset = object.item;
-			})
-		);
-
-		controlDict.put(\presetName,
-			TextField()
-			.action_({arg obj;
-				curPreset = obj.item;
-			});
-		);
-
 		controlDict.put(\save,
 			Button()
 			.states_([
@@ -344,29 +309,20 @@ FreePlay {
 			.font_(Font.new().pixelSize_(15))
 			.action_({arg button;
 				this.makePreset;
+				button.visible_(false);
 				button.value = 0;
-			});
+			})
+			.visible_(false);
 		);
-		gui.parent.postln;
-		controlDict.put(\load,
-			Button()
-			.states_([
-				["LOAD", Color.white, Color.black],
-				["LOAD", Color.black, Color.white]
-			])
-			.font_(Font.new().pixelSize_(15))
-			.action_({arg button;
-				Object.readArchive(presetDict[curPreset]).keysValuesDo({arg key, value;
-	//				key.postln;
-					key.postln;
-					controlDict[key.asSymbol].postln;
-/*					if (key != \dur, {
-						controlDict[key.asSymbol].valueAction_(value)
-					}, {
-						controlDict[\duration].start_(value[0]).end_(value[1])
-					});*/
-				});
-				button.value = 0;
+
+		controlDict.put(\presetName,
+			TextField()
+			.action_({arg obj;
+				presetName = obj.string;
+				if (controlDict[\save].visible == false,
+					{controlDict[\save].visible_(true)}
+				);
+				presetName.postln;
 			});
 		);
 
@@ -378,12 +334,10 @@ FreePlay {
 			])
 			.font_(Font.new().pixelSize_(15))
 			.action_({arg button;
-				if (button = 1, {
-
-				}, {
-
-				});
-			});
+				syncFlag = (syncFlag).not;
+				syncFlag.postln
+			})
+			.value_(1);
 		);
 
 		synthBox.layout_(
@@ -525,10 +479,74 @@ FreePlay {
 				songBtn
 			)
 		);
+
+		instrumentControls = [
+			[
+				"Tempo",                                                   // name
+				TextField(),                                               // control
+				{arg field; (userClock !? {userClock.tempo_(field.value.asInteger/60)}); tempo =  field.value.asInteger}, // action
+				120                                                          // valueAction
+			],
+			[
+				"Instrument",
+				PopUpMenu(),
+				{arg field;
+					var presetItems;
+					curInstrument = field.item.asSymbol;
+					(instrumentNames == controlDict[\presetPopUp].items).postln;
+					presetItems = controlDict[\presetPopUp].items.collect({arg thisItem;
+						thisItem.asSymbol;
+					});
+					presetItems.indexOf(curInstrument).postln;
+					if (syncFlag, {
+						controlDict[\presetPopUp].valueAction_(presetItems.indexOf(curInstrument));
+						controlDict[\load].valueAction_(1);
+					})
+				},
+				instrumentNames[0],
+				instrumentNames
+			],
+			[
+				"Key",
+				TextField(),
+				{arg field;	curKey = field.value.asSymbol;},
+				"C"
+			],
+			[
+				"Octave",
+				TextField(),
+				{arg field;curOctave = field.value.asInteger;},
+				3
+			],
+			[
+				"Scale",
+				PopUpMenu(),
+				{arg field; curScale = field.item.asSymbol; curScale.postln},
+				"major",
+				scales.asSortedArray.flop[0];
+			]
+		].collect({arg thisData;
+			var control, layout;
+			control = thisData[1];
+			thisData.postln;
+			if (thisData.size > 4, {
+				control.items_(thisData[4]);
+			});
+			control.action_(thisData[2]);
+			control.valueAction_(thisData[3]);
+			[control, HLayout(*[StaticText(instrumentBox).string_(thisData[0] + ": ").stringColor_(Color.white), control.fixedWidth_(100)]), thisData[0].asSymbol];
+		});
+
+		instrumentControls = instrumentControls.flop;
+		instrumentControls.postln;
+
+		instrumentBox.layout = VLayout(*instrumentControls[1]);
 	}
 
 
 		makePreset {
+		("making-preset" + presetName).postln;
+
 			Dictionary.new.putPairs([\att, att, \dec, dec, \rel, rel, \attCurve, attCurve, \decCurve, decCurve, \relCurve, relCurve, \dur, [start, end]]).writeArchive(Platform.userAppSupportDir ++ "/downloaded-quarks/EncephalophoneGUI/Presets/" ++ presetName ++ ".txt");
 		}
 
