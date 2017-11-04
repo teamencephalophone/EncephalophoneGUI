@@ -203,7 +203,7 @@ FreePlay {
 					key.postln;
 					controlDict[key.asSymbol].postln;
 					if (key != \dur, {
-						controlDict[key.asSymbol][1].valueAction_(value)
+						controlDict[key.asSymbol][0].valueAction_(value)
 					}, {
 						controlDict[\duration].activeLo_(value[0]).activeHi_(value[1])
 					});
