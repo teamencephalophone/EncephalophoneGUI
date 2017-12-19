@@ -31,7 +31,7 @@ EncephalophoneGUI {
 
 		modeTypes = [\Calibrate, \FreePlay, \Tester];
 
-		modeDim = [[800, 300], [875, 500], [360, 200]];
+		modeDim = [[800, 300], [850, 550], [360, 200]];
 
 		gui = Window.new("EncGUI", Rect(200, 600, modeDim[0][0], modeDim[0][1] + space))
 		.visible_(true)

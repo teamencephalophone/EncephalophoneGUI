@@ -58,9 +58,13 @@ FreePlay {
 		keys.putPairs(['C', 0, 'C#', 1, 'Db', 1, 'D', 2, 'D#', 3, 'Eb', 3, 'E', 4, 'F', 5, 'F#', 6, 'Gb', 6, 'G', 7, 'G#', 8, 'Ab', 8, 'A', 9, 'A#', 10, 'Bb', 10, 'B', 11]);
 		att = 0.1; rel = 0.5; dec = 0; attCurve = -1; relCurve = -1; decCurve = -1;
 		this.initMidi;
+		"midiDone".postln;
 		this.getMidiDestinations;
+		"destDone".postln;
 		this.makeDict;
+		"dictDone".postln;
 		this.addSongs;
+		"songsDone".postln;
 		//cur = Dictionary.with(*[\tempo, ->120, \instrument -> \Violin, \note -> 60]);
 		this.initSynths;
 		this.makeGUI;
@@ -75,6 +79,7 @@ FreePlay {
 		destNames = MIDIClient.destinations.collect({arg thisDest;
 			thisDest.name
 		});
+		"complete".postln;
 	}
 
 	makeMidiOut {
@@ -84,13 +89,14 @@ FreePlay {
 
 	addSongs {
 		var makeSongBufs;
+		"SongOneDone".postln;
 		makeSongBufs = {arg thisFile;
 			var noteDict = Dictionary.new;
 			var fileArray = thisFile.fileName.split($.);
 			noteDict.putPairs([\Name, fileArray[0].asSymbol, \Buffer, Buffer.read(server, thisFile.fullPath), \Key, fileArray[1], \Scale, fileArray[2], \Tempo, fileArray[3]]);
 			noteDict;
 		};
-
+		"SongTwoDone".postln;
 		PathName(Platform.userAppSupportDir ++ "/downloaded-quarks/EncephalophoneGUI/Songs/").entries.do({arg thisEntry;
 			songs.put(thisEntry.fileName.split($.)[0].asSymbol, makeSongBufs.value(thisEntry));
 		});
@@ -115,6 +121,7 @@ FreePlay {
 			entries.filesDo({arg thisFile;
 				var fileArray = thisFile.fileName.split($.);
 				var midiNum = fileArray[fileArray.size - 3].namemidi;
+				(fileArray[0] + midiNum.midiname).postln;
 				minimum = min(midiNum, minimum);
 				maximum = max(midiNum, maximum);
 				noteDict.put(midiNum, Buffer.read(server, thisFile.fullPath/*,action:{cond.test_(true).signal}*/));
@@ -123,8 +130,10 @@ FreePlay {
 			});
 			noteDict.put(\min, minimum);
 			noteDict.put(\max, maximum);
+			"here?".postln;
 			noteDict;
 		};
+		"DestCheck".postln;
 
 		PathName(Platform.userAppSupportDir ++ "/downloaded-quarks/EncephalophoneGUI/Musical_Instruments_midi/").entries.do({arg thisEntry;
 			list.add(thisEntry.folderName);
@@ -161,8 +170,8 @@ FreePlay {
 			View().background_(Color.grey.alpha_(0.2));
 		};
 
-		noteBox = makeBox.value().fixedHeight_(gui.bounds.height - 400);
-		controlBox = makeBox.value();
+		noteBox = makeBox.value().fixedHeight_(gui.bounds.height - 450);
+		controlBox = makeBox.value().fixedWidth_(250);
 		instrumentBox = makeBox.value();
 		midiBox = makeBox.value();
 		backingBox = makeBox.value();
@@ -205,7 +214,6 @@ FreePlay {
 		});
 
 		controlBox.layout = VLayout(btn, instrumentBox, midiBox);
-
 
 		controlDict.put(\midiBtn,
 			Button()
@@ -279,7 +287,7 @@ FreePlay {
 			HLayout(controlDict[\midiBtn], controlDict[\initMidi]),
 			HLayout(StaticText().string_("Dest: ").font_(Font().pixelSize_(15)).stringColor_(Color.white).align_(\left).fixedWidth_(40).fixedHeight_(20), controlDict[\midiPopUp]),
 			HLayout(
-				View().background_(Color.grey.alpha_(0.15)).fixedHeight_(70).layout_(
+				View().background_(Color.grey.alpha_(0.15)).fixedHeight_(90).layout_(
 					VLayout(
 						StaticText().string_("Max Volume")
 						.font_(Font()
@@ -292,7 +300,7 @@ FreePlay {
 						)
 					)
 				),
-				View().background_(Color.grey.alpha_(0.15)).fixedHeight_(70).layout_(
+				View().background_(Color.grey.alpha_(0.15)).fixedHeight_(90).layout_(
 					VLayout(
 						StaticText()
 						.string_("Duration")
@@ -307,6 +315,7 @@ FreePlay {
 				)
 			)
 		);
+
 
 		controlDict.put(\presetPopUp,
 			PopUpMenu().items_(presetDict.asSortedArray.flop[0])
@@ -479,7 +488,7 @@ FreePlay {
 					controlDict[\presetName],
 					controlDict[\save]
 				),
-				envView,
+				envView.fixedHeight_(150),
 				HLayout(
 					HLayout(
 						*envViews,
@@ -778,10 +787,11 @@ FreePlay {
 
 	scheduleNotes {
 		var midiRout = {Task({
-			var thisMidiNum;
+			var thisMidiNum, thisMidiDur;
 			thisMidiNum = midiNum;
+			thisMidiDur = midiDur;
 			midiOut.noteOn(0, thisMidiNum, userGain.linlin(-96, 0, 0, maxMidiVol));
-			midiDur.wait;
+			thisMidiDur.wait;
 			midiOut.noteOff(0, thisMidiNum);
 		}).start};
 
