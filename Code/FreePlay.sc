@@ -20,7 +20,9 @@ FreePlay {
 	var window;
 	var presetName, curPreset;
 	var presets, presetDict, syncFlag;
+	var latCompDict;
 	var midiFlag, maxMidiVol, midiOut, midiNum, midiDur, destNames, curIndex;
+	var songDelay;
 
 	*new {arg server, gui, window;
 		^super.new.init(server, gui, window);
@@ -49,14 +51,16 @@ FreePlay {
 		midiFlag = false;
 		midiNum = 60;
 		curIndex = 0;
+		songDelay = 0;
 		instrument = Dictionary.new;
 		keys = Dictionary.new;
 		scales = Dictionary.new;
 		songs = Dictionary.new;
+		latCompDict = Dictionary.new;
 		scales.putPairs([\major, Scale.major.degrees ++ 12, \minor, Scale.minor.degrees ++ 12]);
-		scales.postln;
 		keys.putPairs(['C', 0, 'C#', 1, 'Db', 1, 'D', 2, 'D#', 3, 'Eb', 3, 'E', 4, 'F', 5, 'F#', 6, 'Gb', 6, 'G', 7, 'G#', 8, 'Ab', 8, 'A', 9, 'A#', 10, 'Bb', 10, 'B', 11]);
-		att = 0.1; rel = 0.5; dec = 0; attCurve = -1; relCurve = -1; decCurve = -1;
+		latCompDict.putPairs(['wavetable', 0.17, 'gui instruments', 0, 'disklavier', 0.15, 'kontakt', 0.05]);
+		att = 0.1; rel = 0.5; dec = 0; attCurve = -1; relCurve = -1; decCurve = -3;
 		this.initMidi;
 		"midiDone".postln;
 		this.getMidiDestinations;
@@ -89,14 +93,12 @@ FreePlay {
 
 	addSongs {
 		var makeSongBufs;
-		"SongOneDone".postln;
 		makeSongBufs = {arg thisFile;
 			var noteDict = Dictionary.new;
 			var fileArray = thisFile.fileName.split($.);
 			noteDict.putPairs([\Name, fileArray[0].asSymbol, \Buffer, Buffer.read(server, thisFile.fullPath), \Key, fileArray[1], \Scale, fileArray[2], \Tempo, fileArray[3]]);
 			noteDict;
 		};
-		"SongTwoDone".postln;
 		PathName(Platform.userAppSupportDir ++ "/downloaded-quarks/EncephalophoneGUI/Songs/").entries.do({arg thisEntry;
 			songs.put(thisEntry.fileName.split($.)[0].asSymbol, makeSongBufs.value(thisEntry));
 		});
@@ -130,7 +132,6 @@ FreePlay {
 			});
 			noteDict.put(\min, minimum);
 			noteDict.put(\max, maximum);
-			"here?".postln;
 			noteDict;
 		};
 		"DestCheck".postln;
@@ -141,17 +142,6 @@ FreePlay {
 		});
 		instrumentNames = list.asArray;
 	}
-
-	/*	isSustaining_ {arg bool;
-	if(bool, {
-	// nowPlayingSynth.set(\sustaining, 1);
-	isSustaining = true;
-	}, {
-	// nowPlayingSynth.set(\gate, 0);
-	this.releaseLast;
-	isSustaining = false;
-	})
-	}*/
 
 	makeGUI {
 		var makeBox, makeView;
@@ -245,7 +235,7 @@ FreePlay {
 					{
 						this.initMidi;
 						this.getMidiDestinations;
-						controlDict[\midiPopUp].items(destNames);
+						controlDict[\midiPopUp].items_(destNames);
 					}
 				);
 				button.value = 0;
@@ -595,6 +585,35 @@ FreePlay {
 			})
 		);
 
+
+		controlDict.put(\latText,
+			TextField().fixedWidth_(35)
+			.font_(Font()
+			.pixelSize_(15))
+			.action_({arg field;
+				songDelay = field.value.asFloat;
+				this.setSongDelay;
+				songDelay.postln;
+			});
+		);
+
+		controlDict.put(\latPresets,
+			PopUpMenu().items_(["disklavier", "gui instruments", "kontakt", "wavetable"]).action_({arg thisItem;
+				controlDict[\latText].valueAction_(latCompDict[thisItem.item.asSymbol]);
+			});
+		);
+
+		controlDict[\latPresets].valueAction_(1);
+
+		controlDict.put(\latLabel,
+			StaticText()
+			.string_("Latency Comp: ")
+			.font_(Font().pixelSize_(13))
+			.stringColor_(Color.white)
+			.align_(\center)
+			.fixedHeight_(17)
+		);
+
 		backingBox.layout = VLayout(
 			VLayout(
 				HLayout(*controlDict[\infoBox]),
@@ -607,6 +626,11 @@ FreePlay {
 				HLayout(
 					StaticText().string_("Song: ").font_(Font().pixelSize_(15)).stringColor_(Color.white),
 					controlDict[\songPopUp];
+				),
+				HLayout(
+					*([\latLabel, \latText, \latPresets].collect({arg symb;
+						controlDict[symb]
+					}));
 				),
 				songBtn
 			)
@@ -699,12 +723,13 @@ FreePlay {
 		}).add;
 
 		SynthDef.new(\playSong,
-			{arg buffer, gain = -6, turnOff = 1;
+			{arg buffer, gain = -6, turnOff = 1, delay = 0.1;
 				var in, out, env, amp;
 				amp = gain.dbamp;
 				//env = EnvGen.kr(Env.adsr(a, d, s, r), levelScale: amp, timeScale: dur, doneAction: 2);
 				in = PlayBuf.ar(2, buffer, BufRateScale.kr(buffer));
 				out = in * amp;
+				out = DelayC.ar(out, 1, delay.lag(0.05));
 				Out.ar(0, out);
 		}).add;
 
@@ -747,7 +772,8 @@ FreePlay {
 		this.showInfo;
 
 		playSong = {
-			curPlayingSong = Synth(\playSong, [\buffer: songs[curSong][\Buffer]]);
+			songDelay.postln;
+			curPlayingSong = Synth(\playSong, [\buffer: songs[curSong][\Buffer], \gain, songGain, \delay, songDelay]);
 			NodeWatcher.newFrom(server).register(curPlayingSong);
 		};
 
@@ -819,7 +845,6 @@ FreePlay {
 	stopClock {
 		clock !? {clock.clear};
 		clock = nil;
-		clock.postln;
 	}
 
 	stopUserClock {
@@ -843,6 +868,13 @@ FreePlay {
 	setSongGain {
 		if(curPlayingSong.isPlaying, {
 			curPlayingSong.set(\gain, songGain)
+		});
+	}
+
+	setSongDelay {
+		if(curPlayingSong.isPlaying, {
+			songDelay.postln;
+			curPlayingSong.set(\delay, songDelay)
 		});
 	}
 
@@ -890,7 +922,5 @@ FreePlay {
 		};
 		curRatio = midiDif.midiratio;
 		midiNote = thisNote;
-		curRatio.postln;
-		instrument[curInstrument][thisNote].postln;
 	}
 }
