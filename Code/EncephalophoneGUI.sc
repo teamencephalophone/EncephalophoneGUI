@@ -46,6 +46,10 @@ EncephalophoneGUI {
 				[tester, freeplay, calibrate].do({arg item;
 					item.getOscDef.free;
 				});
+
+				[freeplay, calibrate].do({arg item;
+					item.getPupilDef.free;
+				});
 			}
 		);
 

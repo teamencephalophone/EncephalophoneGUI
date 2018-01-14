@@ -22,7 +22,7 @@ FreePlay {
 	var presets, presetDict, syncFlag;
 	var latCompDict;
 	var midiFlag, maxMidiVol, midiOut, midiNum, midiDur, destNames, curIndex;
-	var songDelay;
+	var songDelay, pupilOSCDef, eyeVal, eyeBool;
 
 	*new {arg server, gui, window;
 		^super.new.init(server, gui, window);
@@ -52,6 +52,8 @@ FreePlay {
 		midiNum = 60;
 		curIndex = 0;
 		songDelay = 0;
+		eyeVal = 1;
+		eyeBool = false;
 		instrument = Dictionary.new;
 		keys = Dictionary.new;
 		scales = Dictionary.new;
@@ -61,6 +63,7 @@ FreePlay {
 		keys.putPairs(['C', 0, 'C#', 1, 'Db', 1, 'D', 2, 'D#', 3, 'Eb', 3, 'E', 4, 'F', 5, 'F#', 6, 'Gb', 6, 'G', 7, 'G#', 8, 'Ab', 8, 'A', 9, 'A#', 10, 'Bb', 10, 'B', 11]);
 		latCompDict.putPairs(['wavetable', 0.17, 'gui instruments', 0, 'disklavier', 0.15, 'kontakt', 0.05]);
 		att = 0.1; rel = 0.5; dec = 0; attCurve = -1; relCurve = -1; decCurve = -3;
+		this.makePupilDef;
 		this.initMidi;
 		"midiDone".postln;
 		this.getMidiDestinations;
@@ -614,6 +617,16 @@ FreePlay {
 			.fixedHeight_(17)
 		);
 
+		controlDict.put(\eyeBtn,
+			Button().states_([
+				["EYETRACK OFF", Color.white, Color.black],
+				["EYETRACK ON", Color.black, Color.white]
+			]).action_({arg obj;
+
+				eyeBool = eyeBool.not;
+			})
+		);
+
 		backingBox.layout = VLayout(
 			VLayout(
 				HLayout(*controlDict[\infoBox]),
@@ -632,7 +645,7 @@ FreePlay {
 						controlDict[symb]
 					}));
 				),
-				songBtn
+				HLayout(songBtn, controlDict[\eyeBtn])
 			)
 		);
 
@@ -708,7 +721,7 @@ FreePlay {
 
 	initSynths {
 		SynthDef.new(\playSound,
-			{arg buffer, gain = -6, thisAtt = 0.05, thisDec = 0.2, thisRel = 0.3, thisAttCurve = 0.05, thisDecCurve = 0.2, thisRelCurve = 0.3, thisStart = 0, thisEnd = 1, ratio = 1, midi = 50;
+			{arg buffer, gain = -6, thisAtt = 0.05, thisDec = 0.2, thisRel = 0.3, thisAttCurve = 0.05, thisDecCurve = 0.2, thisRelCurve = 0.3, thisStart = 0, thisEnd = 1, ratio = 1, midi = 50, turnOff;
 				var in, out, env, amp;
 				var startPos, endPos;
 				amp = gain.dbamp;
@@ -719,6 +732,7 @@ FreePlay {
 
 				out = in!2;
 				out = out *  EnvGen.kr(Env([0, amp, amp * thisDec, 0], [thisAtt, 1.0 - (thisAtt + rel), thisRel], [thisAttCurve, thisDecCurve, thisRelCurve]),  timeScale: (BufDur.kr(buffer) * thisEnd) - startPos, doneAction: 2);
+				out = out * turnOff;
 				Out.ar(0, out);
 		}).add;
 
@@ -813,10 +827,14 @@ FreePlay {
 
 	scheduleNotes {
 		var midiRout = {Task({
-			var thisMidiNum, thisMidiDur;
+			var thisMidiNum, thisMidiDur, thisMidiVol;
 			thisMidiNum = midiNum;
 			thisMidiDur = midiDur;
-			midiOut.noteOn(0, thisMidiNum, userGain.linlin(-96, 0, 0, maxMidiVol));
+			if (eyeBool,
+				{thisMidiVol = userGain.linlin(-96, 0, 0, maxMidiVol) * eyeVal},
+				{thisMidiVol = userGain.linlin(-96, 0, 0, maxMidiVol)}
+			);
+			midiOut.noteOn(0, thisMidiNum, thisMidiVol);
 			thisMidiDur.wait;
 			midiOut.noteOff(0, thisMidiNum);
 		}).start};
@@ -827,7 +845,11 @@ FreePlay {
 			//Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio]);
 			if (midiFlag.not,
 				{
-					Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio, \thisAtt, att, \thisDec, dec, \thisRel, rel, \thisAttCurve, attCurve, \thisDecCurve, decCurve, \thisRelCurve, relCurve, \thisStart, start, \thisEnd, end, \gain, userGain, \midi, midiNote]);
+					if (eyeBool, {
+						Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio, \thisAtt, att, \thisDec, dec, \thisRel, rel, \thisAttCurve, attCurve, \thisDecCurve, decCurve, \thisRelCurve, relCurve, \thisStart, start, \thisEnd, end, \gain, userGain, \midi, midiNote, \turnOff, eyeVal]);
+					}, {
+						Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio, \thisAtt, att, \thisDec, dec, \thisRel, rel, \thisAttCurve, attCurve, \thisDecCurve, decCurve, \thisRelCurve, relCurve, \thisStart, start, \thisEnd, end, \gain, userGain, \midi, midiNote, \turnOff, 1]);
+					})
 				},
 				{
 					midiRout.value();
@@ -922,5 +944,26 @@ FreePlay {
 		};
 		curRatio = midiDif.midiratio;
 		midiNote = thisNote;
+	}
+
+	makePupilDef {
+		pupilOSCDef = OSCdef(
+			\pupilChecker,
+			{ |msg|
+				var val = msg[1];
+				{
+					if (val >= 0.5, {
+						eyeVal = 1;
+					}, {
+						eyeVal = 0;
+					});
+				}.defer
+			},
+			'/pupil'
+		);
+	}
+
+	getPupilDef {
+		^pupilOSCDef;
 	}
 }

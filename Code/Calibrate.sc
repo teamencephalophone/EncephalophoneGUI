@@ -1,5 +1,5 @@
 Calibrate {
-	var server, gui, oscdef;
+	var server, gui, oscdef, pupilOSCDef;
 
 	*new {arg server, gui;
 		^super.new.init(server, gui);
@@ -15,25 +15,19 @@ Calibrate {
 		var makeBox;
 		var controlBox, plotBox;
 		var btn, plotView, plot;
-		var data, cur;
+		var data, cur, eyeVal;
 		var plotDim;
 
-		plotDim = [330, 180];
+		plotDim = [400, 200];
+
+		controlBox = View().background_(Color.black.alpha_(0.1));
+		plotBox = View().background_(Color.black.alpha_(0.12));
 
 		data = Array.fill(16, {0});
 		cur = 0;
 		data.postln;
 
-		makeBox = {arg rect, color, margin, gap;
-			var thisBox = CompositeView(gui, rect).background_(color);
-			thisBox.decorator_(FlowLayout(thisBox.bounds, margin, gap));
-		};
-
-		controlBox = makeBox.value(Rect.new(20, gui.bounds.height - 280, 380, 300), Color.grey.alpha_(0.2), 10@10, 10@10);
-
-		plotBox = makeBox.value(Rect.new(430, gui.bounds.height - 280, 350, 300), Color.grey.alpha_(0.2), 10@10, 10@10);
-
-		btn = Button(controlBox, 150@40)
+		btn = Button()
 		.states_([
 			["CALIBRATE", Color.white, Color.black],
 			["", Color.black, Color.white]
@@ -47,7 +41,7 @@ Calibrate {
 			)
 		});
 
-		plotView = UserView(plotBox, plotDim[0]@plotDim[1]);
+		plotView = UserView();
 
 		plot = Plotter("data-plot", Rect(0, 0, plotDim[0], plotDim[1]), plotView).value_(data)
 		.setProperties(
@@ -57,8 +51,26 @@ Calibrate {
 			\gridColorX, Color.white,
 			\gridColorY, Color.white,
 		);
-		cur = StaticText(plotBox, 30@30).string_("" + cur).stringColor_(Color.white);
 
+		cur = StaticText().string_("Current Val: " ++ cur).stringColor_(Color.white);
+
+		eyeVal = StaticText().string_("Eye Tracking: " ++ 1).stringColor_(Color.white);
+
+		plotBox.layout_(
+			VLayout(
+				plotView,
+				HLayout(
+					View().background_(Color.black).layout_(HLayout(cur)).fixedHeight_(40),
+					View().background_(Color.black).layout_(HLayout(eyeVal)).fixedHeight_(40)
+				)
+			)
+		);
+
+		gui.layout_(
+			HLayout(
+				controlBox, plotBox
+			)
+		);
 
 		oscdef = OSCdef(
 			\calibrateDef,
@@ -69,17 +81,35 @@ Calibrate {
 				data.add(note);
 				{
 					plot.value_(data);
-					cur.string_("" + note);
+					cur.string_("Current Value: " + note);
 				}.defer;
 
 			},
 			'/fred'
-		)
+		);
 
+		pupilOSCDef = OSCdef(
+			\checkPupil,
+			{ |msg|
+				var string;
+				var val = msg[1];
+				{
+					if (val > 0.5, {
+						eyeVal.string_("Eye is: " ++ "OPEN")
+					}, {
+						eyeVal.string_("Eye is: " ++ "CLOSED")
+					});
+				}.defer
+			},
+			'/pupil'
+		);
 	}
 
 	getOscDef {
 		^oscdef;
 	}
 
+	getPupilDef {
+		^pupilOSCDef;
+	}
 }
