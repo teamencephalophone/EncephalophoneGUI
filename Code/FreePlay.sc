@@ -59,7 +59,7 @@ FreePlay {
 		scales = Dictionary.new;
 		songs = Dictionary.new;
 		latCompDict = Dictionary.new;
-		scales.putPairs([\major, Scale.major.degrees ++ 12, \minor, Scale.minor.degrees ++ 12]);
+		scales.putPairs([\major, Scale.major.degrees ++ 12, \minor, Scale.minor.degrees ++ 12, \blues, [0, 2, 5, 6, 7, 7, 10, 12]]);
 		keys.putPairs(['C', 0, 'C#', 1, 'Db', 1, 'D', 2, 'D#', 3, 'Eb', 3, 'E', 4, 'F', 5, 'F#', 6, 'Gb', 6, 'G', 7, 'G#', 8, 'Ab', 8, 'A', 9, 'A#', 10, 'Bb', 10, 'B', 11]);
 		latCompDict.putPairs(['wavetable', 0.17, 'gui instruments', 0, 'disklavier', 0.15, 'kontakt', 0.05]);
 		att = 0.1; rel = 0.5; dec = 0; attCurve = -1; relCurve = -1; decCurve = -3;
