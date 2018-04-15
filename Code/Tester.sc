@@ -1,3 +1,338 @@
+/*
+Tester {
+	var server, gui, window;
+	var oscdef;
+	var menuDict, testDict;
+	var noteDict;
+	var curSynth, targetSynth;
+
+	*new {arg server, gui, window;
+		^super.new.init(server, gui, window);
+	}
+
+	init {arg thisServer, thisGUI, thisWindow;
+		server = thisServer;
+		gui = thisGUI;
+		window = thisWindow;
+		menuDict = Dictionary.new;
+		testDict = Dictionary.new;
+		noteDict = Dictionary.new;
+		this.makeGUI;
+	}
+
+	initSynths {
+		SynthDef.new(\curSynth, {arg freq = 440, amp = 0.4, dur = 0.4;
+			var sig, env, out;
+
+			sig = amp *  MdaPiano.ar(freq, decay: 0.1, release: dur);
+			DetectSilence.ar(sig, 0.01, doneAction:2);
+
+			Out.ar(0, sig);
+
+		}).add;
+
+		SynthDef.new(\targetSynth, {arg freq = 440, amp = 0.5;
+			var sig, env, out;
+			var lagVal;
+
+			lagVal = 0.01;
+
+			freq = freq.lag(lagVal);
+
+			sig = Saw.ar([freq  + LFDNoise3.kr(0.89, 0.029), freq + LFDNoise3.kr(0.1, 0.03)]);
+
+			sig = LPF.ar(sig, freq + (0.4 * freq * LFNoise2.kr([0.3, 0.27])));
+
+			// apply the amplitude envelope and Ring Modulate
+			sig = amp.lag(0.05) * sig;
+
+
+			DetectSilence.ar(sig, 0.001, doneAction:2);
+
+			Out.ar(0, sig);
+		}).add;
+
+	}
+
+	makeGUI {
+		var createText, setBackCol;
+		var font = Font(size: 30);
+		var startVisible;
+		var resizeWindow;
+		var startDim, testDim;
+		var selectView;
+		var layoutDict;
+		var testData;
+
+		testData = [\time, \cur, \trial, \hit, \miss];
+		layoutDict = Dictionary.new;
+		startDim = [360, 200];
+		testDim = [500, 700];
+		startVisible = false;
+
+		createText = {arg text = "", size = 20;
+			var color = Color.white;
+			StaticText().string_(text).stringColor_(color).font_(Font().pixelSize_(size))
+		};
+
+		setBackCol = {arg obj;
+			obj.background_(Color.black).stringColor_(Color.white);
+		};
+
+		resizeWindow = {arg width = 360, height = 200;
+			window.setInnerExtent(width, height + 50);
+			gui.resizeTo(width, height);
+		};
+
+		menuDict.put(\startBtn, Button().states_(
+			[["START SESSION", Color.white, Color.black]]
+		).action_({selectView.value()}));
+
+		menuDict.put(\stopBtn, Button().states_(
+			[["STOP SESSION", Color.black, Color.white]]
+		).action_({selectView.value()}));
+
+		testData.do({arg thisSymb;
+			testDict.put(thisSymb, createText.value());
+		});
+
+		selectView = {
+			if (startVisible, {
+				layoutDict[\tester].visible_(false);
+				layoutDict[\menu].visible_(true);
+				resizeWindow.value(startDim[0], startDim[1]);
+				gui.layout_(HLayout(layoutDict[\menu]))
+			}, {
+				layoutDict[\menu].visible_(false);
+				layoutDict[\tester].visible_(true);
+				resizeWindow.value(testDim[0], testDim[1]);
+				gui.layout_(HLayout(layoutDict[\tester]))
+			});
+			startVisible = startVisible.not;
+		};
+
+		noteDict.put(\noteView, View());
+
+		noteDict.put(\userNotes, Array.fill(8, {
+			var thisNote, thisView;
+			thisNote = NoteVis(80, Color.white, noteDict[\noteView]).animate;
+			thisView = thisNote.getView;
+			[thisNote, thisView];
+		}));
+
+		noteDict.put(\targetNotes, Array.fill(8, {
+			var thisNote, thisView;
+			thisNote = TargetVis(80, Color.white, noteDict[\noteView]);
+			thisView = thisNote.getView;
+			[thisNote, thisView];
+		}));
+
+		[\userNotes, \targetNotes].do({arg thisSymb;
+			noteDict[thisSymb] = noteDict[thisSymb].flop;
+		});
+
+		noteDict[\noteView].layout_(HLayout(VLayout(*noteDict[\userNotes][1]), VLayout(*noteDict[\targetNotes][1]))).background_(Color.grey);
+
+		"These are notes!".postln;
+		noteDict[\userNotes][1].postln;
+		noteDict[\targetNotes][1].postln;
+
+		menuDict.put(\name, TextField());
+		menuDict.put(\path, TextField());
+		menuDict.put(\difficulty, PopUpMenu().items_(["EASY", "MEDIUM", "HARD"]));
+
+		layoutDict.put(\menu,
+			View().layout_(VLayout(
+				*([\name, \path, \difficulty].collect({arg thisSymb;
+					var textName = (thisSymb.asString ++ "Text").asSymbol;
+					menuDict.put(textName, createText.value((thisSymb.asString), 15).fixedWidth_(60));
+					setBackCol.value(menuDict[thisSymb]);
+					menuDict.put((thisSymb.asString ++ "colon").asSymbol, createText.value(":     ", 15));
+					HLayout(menuDict[textName], menuDict[(thisSymb.asString ++ "colon").asSymbol], menuDict[thisSymb].fixedWidth_(240));
+			}) ++ menuDict[\startBtn])
+			));
+		);
+
+		layoutDict.put(\tester,
+			View().layout_(HLayout(VLayout(menuDict[\stopBtn], View().layout_(VLayout(*testData.collect({arg thisSymb; testDict[thisSymb]}))).background_(Color.grey)), noteDict[\noteView])).visible_(false);
+		);
+
+		gui.layout_(HLayout(layoutDict[\menu]));
+	}
+
+/*
+	playTester {
+		var rout = Routine({arg time;
+			var cur = 1;
+			var targetNum = 0;
+			var correct = 0;
+			var thisNum = 9.xrand - 1;
+			var flag = false;
+			var date;
+    		trial = -1;
+			hit = 0;
+			miss = 0;
+			targetSynth = 0;
+			target = 0;
+
+			oscFunc = { |msg, time, addr|
+				    thisNum = msg[1] - 1;
+			};
+			oscdef = OSCdef(\testerDef, oscFunc, '/fred');
+
+			date = " " ++ Date.getDate.asString.replace(":", "-");
+
+			file = File(folder
+				++ Platform.case(
+					    \osx,       { "".postln },
+					    \windows,   { "/".postln }
+				)
+				++ name ++ date ++ ".txt", "w");
+
+			600.do({ arg i;
+					if (cur == 1,
+						{
+							if ((target == 0).not, {
+								target.makeDefault;
+							});
+							targetNum = targVals.choose - 1;
+						target = targetNotes[0][targetNum];
+						{target.makeTarget}.defer;
+							trial = trial + 1;
+							file.write("Trial Number: " + trial + "Target: " + (targetNum  + 1) + "\n");
+							if (targetSynth == 0,
+								{this.startTarget(targetNum)},
+								{this.setTarget(targetNum)}
+							);
+						}
+					);
+					file.write("octile: " + thisNum + " " + "num: " + (i + 1) + " ");
+					{
+					timeText.string_(i + 1);
+					curText.string_(cur);
+					trialText.string_("trial: " + trial);
+					hitText.string_("hit: " + hit);
+					missText.string_("miss " + miss);
+
+					userNotes[0][thisNum].animate;
+					}.defer;
+
+					this.play(thisNum);
+					file.write(" result: ");
+					if (targetNum != 7,
+						{
+							if ((thisNum == targetNum).or(thisNum == (targetNum + 1)),
+								{
+									correct = correct + 1;
+									file.write("hit")
+								},
+								{
+									correct = 0;
+									file.write("miss")
+								}
+							)
+						},
+						{
+							if ((thisNum == 7).or(thisNum == 6),
+								{
+									correct = correct + 1;
+									file.write("hit")
+								},
+								{
+									correct = 0;
+									file.write("miss")
+								}
+							)
+						}
+					);
+					0.5.yield;
+					file.write("\n");
+					if (cur == 19,
+						{
+						this.stopTarget;
+						this.playDim();
+						1.0.yield;
+							cur = 1;
+							correct = 0;
+							miss = miss + 1;
+							file.write("\n");
+						},
+						{
+							if(correct > 2,
+								{
+								this.stopTarget;
+								this.playTriad();
+								1.0.yield;
+									cur = 1;
+									correct = 0;
+									hit = hit + 1;
+									file.write("\n");
+								},
+								{cur = cur + 1}
+							);
+						}
+					);
+			});
+
+
+			{stopBtn.valueAction_(1)}.defer;
+
+		});
+		SystemClock.play(rout);
+
+	}
+
+	getOscDef {
+		^oscdef;
+	}
+
+	play {arg deg = 1, oct = 2, synth = \curSynth;
+		var freq = Scale.major.degreeToFreq(notes[deg], key.midicps, 1);
+		Synth.new(synth, [\freq, freq, \dur, rrand(0.15, 0.5)]);
+	}
+
+	playDim {
+		var play = Task({
+			[0, 2, 4, 6].do({arg thisNote;
+				var dimNotes = Scale.diminished.degrees;
+				var freq = Scale.diminished.degreeToFreq(dimNotes[thisNote], key.midicps, 1);
+				Synth.new(\curSynth, [\freq, freq]);
+			});
+		});
+		play.start;
+	}
+
+	playTriad {
+		var play = Task({
+			2.do({
+				[0, 2, 4].do({arg thisNote;
+					var freq = Scale.major.degreeToFreq(notes[thisNote], key.midicps, 1);
+					Synth.new(\curSynth, [\freq, freq, \dur, 0.2]);
+				});
+				(0.20).wait;
+			});
+		});
+		play.start;
+	}
+
+	startTarget {arg deg = 1, amp = 0.5;
+		var freq = Scale.major.degreeToFreq(notes[deg], key.midicps, 1);
+		targetSynth = Synth.new(\targetSynth, [\freq, freq, \amp, amp]);
+	}
+
+	stopTarget {
+		targetSynth.set(\amp, 0);
+		targetSynth = 0;
+	}
+
+	setTarget {arg deg, oct = 2;
+		var freq = Scale.major.degreeToFreq(notes[deg], key.midicps, 1);
+		targetSynth.set(\freq, freq);
+	}
+	*/
+}
+*/
+
 Tester {
 	var gui, view;
 	var color;
@@ -205,7 +540,7 @@ Tester {
 								);
 								oscdef.free;
 								numGen.free;
-								file.write("\n \n" ++ "hits: " ++ hit ++ " misses: " ++ miss ++ " trials: " ++ (trial) ++ " difficulty: " ++ difString ++ "\n");
+								file.write("\n \n" ++ "hits: " ++ hit ++ " misses: " ++ miss ++ " trials: " ++ (trial) ++ " difficulty: " ++ difString ++ "\n" ++ "percentHit: " ++ (hit.asFloat / trial.asFloat).round(0.01));
 								file.close;
 								window.setInnerExtent(360, 200 + 50);
 								gui.resizeTo(360, 200);

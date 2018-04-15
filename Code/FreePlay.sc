@@ -23,6 +23,9 @@ FreePlay {
 	var latCompDict;
 	var midiFlag, maxMidiVol, midiOut, midiNum, midiDur, destNames, curIndex;
 	var songDelay, pupilOSCDef, eyeVal, eyeBool;
+	var pedalVal, pedalOn, sourceID, midiIn;
+	var searcher;
+
 
 	*new {arg server, gui, window;
 		^super.new.init(server, gui, window);
@@ -54,19 +57,23 @@ FreePlay {
 		songDelay = 0;
 		eyeVal = 1;
 		eyeBool = false;
+		pedalOn = false;
+		pedalVal = 1;
 		instrument = Dictionary.new;
 		keys = Dictionary.new;
 		scales = Dictionary.new;
 		songs = Dictionary.new;
 		latCompDict = Dictionary.new;
-		scales.putPairs([\major, Scale.major.degrees ++ 12, \minor, Scale.minor.degrees ++ 12, \blues, [0, 2, 5, 6, 7, 7, 10, 12]]);
+		scales.putPairs([\major, Scale.major.degrees ++ 12, \minor, Scale.minor.degrees ++ 12, \blues, [0, 2, 5, 6, 7, 7, 10, 12], \majorPentatonic, [0, 0, 2, 4, 7, 7, 9, 12], \minorPentatonic, [0, 0, 3, 5, 7, 7, 10, 12], \dorian, Scale.dorian.degrees ++ 12, \phrygian, Scale.phrygian.degrees ++ 12, \lydian, Scale.lydian.degrees ++ 12, \mixolydian, Scale.mixolydian.degrees ++ 12, \locrian, Scale.locrian.degrees ++ 12]);
 		keys.putPairs(['C', 0, 'C#', 1, 'Db', 1, 'D', 2, 'D#', 3, 'Eb', 3, 'E', 4, 'F', 5, 'F#', 6, 'Gb', 6, 'G', 7, 'G#', 8, 'Ab', 8, 'A', 9, 'A#', 10, 'Bb', 10, 'B', 11]);
 		latCompDict.putPairs(['wavetable', 0.17, 'gui instruments', 0, 'disklavier', 0.15, 'kontakt', 0.05]);
 		att = 0.1; rel = 0.5; dec = 0; attCurve = -1; relCurve = -1; decCurve = -3;
 		this.makePupilDef;
-		this.initMidi;
+		MIDIClient.init;
+		MIDIIn.connectAll;
 		"midiDone".postln;
 		this.getMidiDestinations;
+		this.getFootPedal;
 		"destDone".postln;
 		this.makeDict;
 		"dictDone".postln;
@@ -77,21 +84,40 @@ FreePlay {
 		this.makeGUI;
 	}
 
-	initMidi {
-		MIDIClient.init;
-	}
-
 	getMidiDestinations {
-		var midiOutData;
 		destNames = MIDIClient.destinations.collect({arg thisDest;
 			thisDest.name
 		});
-		"complete".postln;
+	}
+
+	getFootPedal {
+		MIDIClient.sources.do({arg thisSrc;
+			if (thisSrc.name == "Teensy MIDI",
+				{sourceID = thisSrc.uid}
+			);
+		});
 	}
 
 	makeMidiOut {
 		midiOut = MIDIOut.newByName(MIDIClient.destinations[curIndex].device, MIDIClient.destinations[curIndex].name);
 		midiOut.latency = 0;
+	}
+
+	makeMidiFunc {
+		midiIn = MIDIFunc.cc(
+			{arg val, chan;
+				val.postln;
+				if (val == 0,
+					{pedalVal = 1},
+					{pedalVal = 0}
+				)
+			},
+			srcID: sourceID
+		)
+	}
+
+	freeMidiFunc {
+		midiIn.free;
 	}
 
 	addSongs {
@@ -105,6 +131,11 @@ FreePlay {
 		PathName(Platform.userAppSupportDir ++ "/downloaded-quarks/EncephalophoneGUI/Songs/").entries.do({arg thisEntry;
 			songs.put(thisEntry.fileName.split($.)[0].asSymbol, makeSongBufs.value(thisEntry));
 		});
+		searcher = Search.new(
+			songs.asSortedArray.flop[0].collect({arg item;
+				item.asString;
+			})
+		);
 		curSong = songs.asSortedArray[0][0];
 		songs.postln;
 		curSong.postln;
@@ -216,7 +247,6 @@ FreePlay {
 			])
 			.font_(Font.new().pixelSize_(15))
 			.action_({
-
 				if(midiFlag.not,
 					{
 						this.makeMidiOut;
@@ -236,7 +266,9 @@ FreePlay {
 			.action_({arg button;
 				if (button.value == 1,
 					{
-						this.initMidi;
+						MIDIClient.init;
+						MIDIIn.connectAll;
+						"midiDone".postln;
 						this.getMidiDestinations;
 						controlDict[\midiPopUp].items_(destNames);
 					}
@@ -249,6 +281,7 @@ FreePlay {
 			PopUpMenu().items_(destNames)
 			.action_({arg object;
 				curIndex = object.value;
+				this.makeMidiOut;
 			})
 		);
 
@@ -274,7 +307,7 @@ FreePlay {
 		controlDict[\durKnob].action_({arg thisKnob;
 			midiDur = thisKnob.value.linlin(0, 1, 0.1, 5);
 			controlDict[\durOutput].string_(midiDur.round(0.1));
-		}).valueAction_(1.linlin(0, 1, 0.1, 5)).fixedWidth_(30).fixedHeight_(30);
+		}).valueAction_(1.linlin(0.1, 5, 0, 1)).fixedWidth_(30).fixedHeight_(30);
 
 		midiBox.layout = VLayout(
 			HLayout(controlDict[\midiBtn], controlDict[\initMidi]),
@@ -550,21 +583,29 @@ FreePlay {
 		});
 
 		controlDict.put(\songPopUp,
-			PopUpMenu().items_(songs.asSortedArray.flop[0]).fixedWidth_(200)
+			PopUpMenu().items_(songs.asSortedArray.flop[0])
 			.action_({arg object;
 				curSong = object.item.asSymbol;
 			})
 		);
 
-		controlDict.put(\info,
-			{StaticText().string_("0").font_(Font().pixelSize_(25)).stringColor_(Color.white).align_(\center)}!2;
+		controlDict.put(\songSearch,
+			TextField().action_({arg query;
+				var result;
+				result = searcher.findData(query.string);
+				controlDict[\songPopUp].items_(result);
+				controlDict[\songPopUp].valueAction_(0);
+			}).fixedWidth_(40)
 		);
+
+		controlDict.put(\info, 	{StaticText().string_("0").font_(Font().pixelSize_(25)).stringColor_(Color.white).align_(\center)}!2;
+		);
+
 		controlDict.put(\infoBox,
 			View().background_(Color.grey.alpha_(0.3)).layout_(
 				HLayout(*(["beats", "bars"].collect({arg name, i;
 					VLayout(
-						View().background_(Color.grey.alpha_(0.5)).layout_(HLayout(controlDict[\info][i])).fixedHeight_(50),
-						StaticText().string_(name).font_(Font().pixelSize_(15)).stringColor_(Color.white).align_(\center).fixedHeight_(17),
+						View().background_(Color.grey.alpha_(0.5)).layout_(HLayout(controlDict[\info][i])).fixedHeight_(50),				StaticText().string_(name).font_(Font().pixelSize_(15)).stringColor_(Color.white).align_(\center).fixedHeight_(17),
 					)
 				})));
 			);
@@ -627,6 +668,21 @@ FreePlay {
 			})
 		);
 
+		controlDict.put(\pedalBtn,
+			Button().states_([
+				["PEDAL OFF", Color.white, Color.black],
+				["PEDAL ON", Color.black, Color.white]
+			]).action_({arg obj;
+				pedalOn = pedalOn.not;
+				if (pedalOn,
+					{this.makeMidiFunc},
+					{this.freeMidiFunc;
+						pedalVal = 1
+					}
+				)
+			})
+		);
+
 		backingBox.layout = VLayout(
 			VLayout(
 				HLayout(*controlDict[\infoBox]),
@@ -638,14 +694,15 @@ FreePlay {
 				),
 				HLayout(
 					StaticText().string_("Song: ").font_(Font().pixelSize_(15)).stringColor_(Color.white),
-					controlDict[\songPopUp];
+					controlDict[\songPopUp], controlDict[\songSearch]
 				),
 				HLayout(
 					*([\latLabel, \latText, \latPresets].collect({arg symb;
 						controlDict[symb]
 					}));
 				),
-				HLayout(songBtn, controlDict[\eyeBtn])
+				HLayout(songBtn),
+				HLayout(controlDict[\eyeBtn], controlDict[\pedalBtn])
 			)
 		);
 
@@ -740,7 +797,6 @@ FreePlay {
 			{arg buffer, gain = -6, turnOff = 1, delay = 0.1;
 				var in, out, env, amp;
 				amp = gain.dbamp;
-				//env = EnvGen.kr(Env.adsr(a, d, s, r), levelScale: amp, timeScale: dur, doneAction: 2);
 				in = PlayBuf.ar(2, buffer, BufRateScale.kr(buffer));
 				out = in * amp;
 				out = DelayC.ar(out, 1, delay.lag(0.05));
@@ -831,8 +887,8 @@ FreePlay {
 			thisMidiNum = midiNum;
 			thisMidiDur = midiDur;
 			if (eyeBool,
-				{thisMidiVol = userGain.linlin(-96, 0, 0, maxMidiVol) * eyeVal},
-				{thisMidiVol = userGain.linlin(-96, 0, 0, maxMidiVol)}
+				{thisMidiVol = userGain.linlin(-96, 0, 0, maxMidiVol) * eyeVal * pedalVal},
+				{thisMidiVol = userGain.linlin(-96, 0, 0, maxMidiVol * pedalVal)}
 			);
 			midiOut.noteOn(0, thisMidiNum, thisMidiVol);
 			thisMidiDur.wait;
@@ -846,9 +902,9 @@ FreePlay {
 			if (midiFlag.not,
 				{
 					if (eyeBool, {
-						Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio, \thisAtt, att, \thisDec, dec, \thisRel, rel, \thisAttCurve, attCurve, \thisDecCurve, decCurve, \thisRelCurve, relCurve, \thisStart, start, \thisEnd, end, \gain, userGain, \midi, midiNote, \turnOff, eyeVal]);
+						Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio, \thisAtt, att, \thisDec, dec, \thisRel, rel, \thisAttCurve, attCurve, \thisDecCurve, decCurve, \thisRelCurve, relCurve, \thisStart, start, \thisEnd, end, \gain, userGain, \midi, midiNote, \turnOff, eyeVal * pedalVal]);
 					}, {
-						Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio, \thisAtt, att, \thisDec, dec, \thisRel, rel, \thisAttCurve, attCurve, \thisDecCurve, decCurve, \thisRelCurve, relCurve, \thisStart, start, \thisEnd, end, \gain, userGain, \midi, midiNote, \turnOff, 1]);
+						Synth(\playSound, [\buffer: instrument[curInstrument][midiNote], \ratio, curRatio, \thisAtt, att, \thisDec, dec, \thisRel, rel, \thisAttCurve, attCurve, \thisDecCurve, decCurve, \thisRelCurve, relCurve, \thisStart, start, \thisEnd, end, \gain, userGain, \midi, midiNote, \turnOff, 1 * pedalVal]);
 					})
 				},
 				{

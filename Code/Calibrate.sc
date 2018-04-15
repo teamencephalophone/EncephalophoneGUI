@@ -54,7 +54,7 @@ Calibrate {
 
 		cur = StaticText().string_("Current Val: " ++ cur).stringColor_(Color.white);
 
-		eyeVal = StaticText().string_("Eye Tracking: " ++ 1).stringColor_(Color.white);
+		eyeVal = StaticText().string_("No Eyetracker").stringColor_(Color.white);
 
 		plotBox.layout_(
 			VLayout(

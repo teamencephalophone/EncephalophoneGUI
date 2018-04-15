@@ -21,6 +21,9 @@ TargetVis {
 		Pen.fillOval( Rect.aboutPoint( Point(50, 50), 20 , 20))};
 	}
 
+	getView {
+		^uv;
+	}
 
     makeTarget {
 		color = Color.blue;
