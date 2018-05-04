@@ -20,6 +20,7 @@ EncephalophoneGUI {
 		var space;
 		var modeTypes, modeDim;
 		var colors = Array.fill(3, {Color.white.alpha_(0.06)});
+		var load;
 
 		space = 50;
 
@@ -53,6 +54,8 @@ EncephalophoneGUI {
 			}
 		);
 
+		load = StaticText(gui, Rect(10, 10, 80, 20)).string_("Loading...").stringColor_(Color.white);
+
 		// Creates views for filters
 		[modeTypes, modeDim].flop.do({arg thisKey, i;
 			var width = thisKey[1][0];
@@ -72,6 +75,8 @@ EncephalophoneGUI {
 				}
 			);
 		});
+
+		load.visible_(false);
 
 		// Creates buttons for filter selection
 		modeBox.put(\buttons, CompositeView(gui, Rect.new(0, 0, (350), space)));

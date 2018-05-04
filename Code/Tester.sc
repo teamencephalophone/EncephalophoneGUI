@@ -417,7 +417,7 @@ Tester {
 
 		}).add;
 
-		SynthDef.new(\targetSynth, {arg freq = 440, amp = 0.5;
+		SynthDef.new(\targetSynth, {arg freq = 440, amp = 0.6;
 			var sig, env, out;
 			var lagVal;
 
@@ -427,7 +427,7 @@ Tester {
 
 			sig = Saw.ar([freq  + LFDNoise3.kr(0.89, 0.029), freq + LFDNoise3.kr(0.1, 0.03)]);
 
-			sig = LPF.ar(sig, freq + (0.4 * freq * LFNoise2.kr([0.3, 0.27])));
+			sig = LPF.ar(sig, freq + (0.5 * freq * LFNoise2.kr([0.3, 0.27])));
 
 			// apply the amplitude envelope and Ring Modulate
 			sig = amp.lag(0.05) * sig;
@@ -763,7 +763,7 @@ Tester {
 		play.start;
 	}
 
-	startTarget {arg deg = 1, amp = 0.5;
+	startTarget {arg deg = 1, amp = 0.6;
 		var freq = Scale.major.degreeToFreq(notes[deg], key.midicps, 1);
 		targetSynth = Synth.new(\targetSynth, [\freq, freq, \amp, amp]);
 	}

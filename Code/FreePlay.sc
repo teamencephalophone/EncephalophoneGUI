@@ -108,8 +108,8 @@ FreePlay {
 			{arg val, chan;
 				val.postln;
 				if (val == 0,
-					{pedalVal = 1},
-					{pedalVal = 0}
+					{pedalVal = 0},
+					{pedalVal = 1}
 				)
 			},
 			srcID: sourceID
@@ -160,9 +160,9 @@ FreePlay {
 				(fileArray[0] + midiNum.midiname).postln;
 				minimum = min(midiNum, minimum);
 				maximum = max(midiNum, maximum);
-				noteDict.put(midiNum, Buffer.read(server, thisFile.fullPath/*,action:{cond.test_(true).signal}*/));
-				//cond.wait;
-				//cond.test_(false);
+				noteDict.put(midiNum, Buffer.read(server, thisFile.fullPath,action:{cond.test_(true).signal}));
+				cond.wait;
+				cond.test_(false);
 			});
 			noteDict.put(\min, minimum);
 			noteDict.put(\max, maximum);
