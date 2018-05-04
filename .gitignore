@@ -49,4 +49,7 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+### Encephalophone ###
+*.aiff
+
 # End of https://www.gitignore.io/api/osx,windows
